@@ -14,6 +14,12 @@ typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
 
+struct VertexV3V2
+{
+    vec3 pos;
+    vec2 uv;
+};
+
 struct Image
 {
     void* pixels;
@@ -82,7 +88,7 @@ struct App
     GLuint programUniformTexture;
 
     // VAO object to link our screen filling quad with our textured quad shader
-    GLuint vao;
+    GLuint VAO;
 };
 
 void Init(App* app);
