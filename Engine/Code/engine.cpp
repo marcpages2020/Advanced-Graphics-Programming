@@ -180,6 +180,11 @@ u32 LoadTexture2D(App* app, const char* filepath)
 
 void Init(App* app)
 {
+	if (GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 3))
+	{
+		glDebugMessageCallback(OnGlError, app);
+	}
+
 	// TODO: Initialize your resources here!
 	const VertexV3V2 VBO[] = {
 		{ vec3(-0.5f, -0.5f, 0.0f), vec2(0.0f, 0.0f) }, //bottom-left
@@ -290,6 +295,46 @@ void Render(App* app)
 	break;
 
 	default:;
+	}
+}
+
+void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+{
+	if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+		return;
+	}
+
+	ELOG("OpenGL debug message: %s", message);
+
+	switch (source)
+	{
+	case GL_DEBUG_SOURCE_API: break;
+	case GL_DEBUG_SOURCE_WINDOW_SYSTEM: break;
+	case GL_DEBUG_SOURCE_SHADER_COMPILER: break;
+	case GL_DEBUG_SOURCE_THIRD_PARTY: break;
+	case GL_DEBUG_SOURCE_APPLICATION: break;
+	case GL_DEBUG_SOURCE_OTHER: break;
+	default: break;
+	}
+	switch (source)
+	{
+	case GL_DEBUG_TYPE_ERROR: break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: break;
+	case GL_DEBUG_TYPE_PORTABILITY: break;
+	case GL_DEBUG_TYPE_PERFORMANCE: break;
+	case GL_DEBUG_TYPE_OTHER: break;
+	case GL_MAX_DEBUG_MESSAGE_LENGTH: break;
+	case GL_MAX_DEBUG_LOGGED_MESSAGES: break;
+	case GL_DEBUG_LOGGED_MESSAGES: break;
+	case GL_DEBUG_SEVERITY_HIGH: break;
+	case GL_DEBUG_SEVERITY_MEDIUM: break;
+	case GL_DEBUG_SEVERITY_LOW: break;
+	case GL_DEBUG_TYPE_MARKER: break;
+	case GL_DEBUG_TYPE_PUSH_GROUP: break;
+	case GL_DEBUG_TYPE_POP_GROUP: break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION: break;
+	default: break;
 	}
 }
 
