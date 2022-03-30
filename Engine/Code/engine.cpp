@@ -198,6 +198,20 @@ void Init(App* app)
 		0,2,3
 	};
 
+	//create the vertex format
+	VertexBufferLayout vertexBufferLayout = {};
+	vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 0, 3, 0 });
+	vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 2, 2, 3 * sizeof(float)});
+	vertexBufferLayout.stride = 5 * sizeof(float);
+
+	//add the submesh into the mesh
+	Submesh submesh = {};
+	submesh.vertexBufferLayout = vertexBufferLayout;
+	//TODO: Finish this
+	//submesh.vertices.swap(vertices);
+	//submesh.indices.swap(indices);
+	//myMesh->submeshes.push_back(submesh);
+
 	//Geometry
 	glGenBuffers(1, &app->embeddedVertices);
 	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
@@ -221,9 +235,15 @@ void Init(App* app)
 	glBindVertexArray(0);
 
 	//Program
-	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
+	/*app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-	app->programUniformTexture = glad_glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
+	app->programUniformTexture = glad_glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");*/
+
+	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
+	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
+	texturedMeshProgram.vertexInputLayout.attributes.push_back({ 0, 3 }); //position
+	texturedMeshProgram.vertexInputLayout.attributes.push_back({ 2, 2 }); //texcoord
+	
 
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
@@ -262,10 +282,24 @@ void Gui(App* app)
 void Update(App* app)
 {
 	// You can handle app->input keyboard/mouse here
+	for (u64 i = 0; i < app->programs.size(); i++)
+	{
+		Program& program = app->programs[i];
+		u64 currentTimestamp = GetFileLastWriteTimestamp(program.filepath.c_str());
+		if (currentTimestamp > program.lastWriteTimestamp)
+		{
+			glDeleteProgram(program.handle);
+			String programSource = ReadTextFile(program.filepath.c_str());
+			const char* programName = program.programName.c_str();
+			program.handle = CreateProgramFromSource(programSource, programName);
+			program.lastWriteTimestamp = currentTimestamp;
+		}
+	}
 }
 
 void Render(App* app)
 {
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 	switch (app->mode)
 	{
 	case Mode_TexturedQuad:
@@ -294,8 +328,11 @@ void Render(App* app)
 	}
 	break;
 
-	default:;
+	default: 
+		break;;
 	}
+
+	glPopDebugGroup();
 }
 
 void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
@@ -308,33 +345,33 @@ void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei l
 
 	switch (source)
 	{
-	case GL_DEBUG_SOURCE_API: break;
-	case GL_DEBUG_SOURCE_WINDOW_SYSTEM: break;
-	case GL_DEBUG_SOURCE_SHADER_COMPILER: break;
-	case GL_DEBUG_SOURCE_THIRD_PARTY: break;
-	case GL_DEBUG_SOURCE_APPLICATION: break;
-	case GL_DEBUG_SOURCE_OTHER: break;
-	default: break;
-	}
-	switch (source)
-	{
-	case GL_DEBUG_TYPE_ERROR: break;
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: break;
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: break;
-	case GL_DEBUG_TYPE_PORTABILITY: break;
-	case GL_DEBUG_TYPE_PERFORMANCE: break;
-	case GL_DEBUG_TYPE_OTHER: break;
-	case GL_MAX_DEBUG_MESSAGE_LENGTH: break;
-	case GL_MAX_DEBUG_LOGGED_MESSAGES: break;
-	case GL_DEBUG_LOGGED_MESSAGES: break;
-	case GL_DEBUG_SEVERITY_HIGH: break;
-	case GL_DEBUG_SEVERITY_MEDIUM: break;
-	case GL_DEBUG_SEVERITY_LOW: break;
-	case GL_DEBUG_TYPE_MARKER: break;
-	case GL_DEBUG_TYPE_PUSH_GROUP: break;
-	case GL_DEBUG_TYPE_POP_GROUP: break;
-	case GL_DEBUG_SEVERITY_NOTIFICATION: break;
-	default: break;
+	case GL_DEBUG_SOURCE_API:				ELOG(" - source: GL_DEBUG_SOURCE_API"); break;
+	case GL_DEBUG_SOURCE_WINDOW_SYSTEM:		ELOG(" - source: GL_DEBUG_SOURCE_WINDOW_SYSTEM"); break;
+	case GL_DEBUG_SOURCE_SHADER_COMPILER:	ELOG(" - source: GL_DEBUG_SOURCE_SHADER_COMPILER"); break;
+	case GL_DEBUG_SOURCE_THIRD_PARTY:		ELOG(" - source: GL_DEBUG_SOURCE_THIRD_PARTY"); break;
+	case GL_DEBUG_SOURCE_APPLICATION:		ELOG(" - source: GL_DEBUG_SOURCE_APPLICATION"); break;
+	case GL_DEBUG_SOURCE_OTHER:				ELOG(" - source: GL_DEBUG_SOURCE_OTHER");  break;
+	}										
+											
+	switch (source)							
+	{										
+	case GL_DEBUG_TYPE_ERROR:				ELOG(" - source: GL_DEBUG_TYPE_ERROR"); break;
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:	ELOG(" - source: GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR"); break;
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:	ELOG(" - source: GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR"); break;
+	case GL_DEBUG_TYPE_PORTABILITY:			ELOG(" - source: GL_DEBUG_TYPE_PORTABILITY"); break;
+	case GL_DEBUG_TYPE_PERFORMANCE:			ELOG(" - source: GL_DEBUG_TYPE_PERFORMANCE"); break;
+	case GL_DEBUG_TYPE_MARKER:				ELOG(" - source: GL_DEBUG_TYPE_MARKER"); break;
+	case GL_DEBUG_TYPE_PUSH_GROUP:			ELOG(" - source: GL_DEBUG_TYPE_PUSH_GROUP"); break;
+	case GL_DEBUG_TYPE_POP_GROUP:			ELOG(" - source: GL_DEBUG_TYPE_POP_GROUP"); break;
+	case GL_DEBUG_TYPE_OTHER:				ELOG(" - source: GL_DEBUG_TYPE_OTHER"); break;
+	}										
+											
+	switch (source)							
+	{										
+	case GL_DEBUG_SEVERITY_HIGH:			ELOG(" - source: GL_DEBUG_SEVERITY_HIGH"); break;
+	case GL_DEBUG_SEVERITY_MEDIUM:			ELOG(" - source: GL_DEBUG_SEVERITY_MEDIUM"); break;
+	case GL_DEBUG_SEVERITY_LOW:				ELOG(" - source: GL_DEBUG_SEVERITY_LOW"); break;
+	case GL_DEBUG_SEVERITY_NOTIFICATION:	ELOG(" - source: GL_DEBUG_SEVERITY_NOTIFICATION"); break;
 	}
 }
 
