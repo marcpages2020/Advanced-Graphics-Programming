@@ -7,6 +7,11 @@
 #include "platform.h"
 #include <glad/glad.h>
 
+struct aiScene;
+struct aiNode;
+struct aiMesh;
+struct aiMaterial;
+
 typedef glm::vec2  vec2;
 typedef glm::vec3  vec3;
 typedef glm::vec4  vec4;
@@ -68,6 +73,19 @@ struct Mesh
 	GLuint               indexBufferHandle;
 };
 
+struct Material
+{
+	std::string name;
+	vec3		albedo;
+	vec3		emissive;
+	f32			smoothness;
+	u32			albedoTextureIdx;
+	u32			emissiveTextureIdx;
+	u32			specularTextureIdx;
+	u32			normalsTextureIdx;
+	u32			bumpTextureIdx;
+};
+
 struct Model
 {
 	u32              meshIdx;
@@ -118,11 +136,8 @@ struct App
 
 	ivec2 displaySize;
 
-	std::vector<Texture>  textures;
-	std::vector<Program>  programs;
-
 	// program indices
-	u32 texturedMeshProgram;
+	u32 texturedMeshProgramIdx;
 	u32 texturedGeometryProgramIdx;
 
 	// texture indices
@@ -146,8 +161,10 @@ struct App
 	// VAO object to link our screen filling quad with our textured quad shader
 	GLuint VAO;
 
+	u32 model;
+
 	std::vector<Texture> textures;
-	//std::vector<Material> textures;
+	std::vector<Material> materials;
 	std::vector<Mesh>	 meshes;
 	std::vector<Model>	 models;
 	std::vector<Program> programs;
@@ -162,3 +179,11 @@ void Update(App* app);
 void Render(App* app);
 
 void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
+
+GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program);
+
+//Assimp
+void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
+void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial, String directory);
+void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
+u32 LoadModel(App* app, const char* filename);
