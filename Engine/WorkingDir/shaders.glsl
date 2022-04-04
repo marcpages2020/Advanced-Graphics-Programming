@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-#ifdef TEXTURED_GEOMETRY
+#ifdef SHOW_TEXTURED_MESH
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
@@ -9,14 +9,13 @@ layout(location=0) in vec3 aPosition;
 layout(location=2) in vec2 aTexCoord;
 
 out vec2 vTexCoord;
+uniform mat4 projectionViewMatrix;
 
 void main()
 {
     vTexCoord = aTexCoord;
-    
-    float clippingScale = 5.0;
 
-    gl_Position = vec4(aPosition, clippingScale);
+    gl_Position = projectionViewMatrix * vec4(aPosition, 1.0f);
     gl_Position.z = -gl_Position.z;
 }   
 

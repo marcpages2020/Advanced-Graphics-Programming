@@ -1,4 +1,4 @@
-//
+﻿//
 // engine.cpp : Put all your graphics stuff in this file. This is kind of the graphics module.
 // In here, you should type all your OpenGL commands, and you can also type code to handle
 // input platform events (e.g to move the camera or react to certain shortcuts), writing some
@@ -12,6 +12,7 @@
 #include <assimp/cimport.h>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/glm.hpp>
 
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
@@ -44,6 +45,7 @@ GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 		fragmentShaderDefine,
 		programSource.str
 	};
+
 	const GLint fragmentShaderLengths[] = {
 		(GLint)strlen(versionString),
 		(GLint)strlen(shaderNameDefine),
@@ -113,7 +115,7 @@ u8 LoadProgramAttributes(Program& program)
 
 	for (u32 i = 0; i < attributeCount; ++i)
 	{
-		GLchar* attributeName = new GLchar[128];
+		GLchar attributeName[128];
 		GLsizei attributeNameLenght;
 		GLint attributeSize;
 		GLenum attributeType;
@@ -201,6 +203,19 @@ u32 LoadTexture2D(App* app, const char* filepath)
 	}
 }
 
+mat4 TransformScale(const vec3& scaleFactors)
+{
+	mat4 transform = glm::scale(scaleFactors);
+	return transform;
+}
+
+mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors)
+{
+	mat4 transform = glm::translate(pos);
+	transform = glm::scale(transform, scaleFactors);
+	return transform;
+}
+
 void Init(App* app)
 {
 	if (GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 3))
@@ -232,8 +247,11 @@ void Init(App* app)
 	glBindVertexArray(0);
 	*/
 
-	app->model = LoadModel(app, "Patrick/Patrick.mtl");
+	app->camera.position = vec3(0.0f, 1.0f, 5.0f);
+	app->camera.target = vec3(0.0f, 1.0f, 0.0f);
 
+	app->model = LoadModel(app, "Room/Room #1.obj");
+	
 	//Program
 	/*app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
@@ -297,6 +315,19 @@ void Update(App* app)
 
 void Render(App* app)
 {
+	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
+	float znear = 0.1f;
+	float zfar = 1000.0f;
+
+	mat4 projection = glm::perspective(glm::radians(60.0f), aspectRatio, znear, zfar);
+	mat4 view = glm::lookAt(app->camera.position, app->camera.target, vec3(0.0f, 1.0f, 0.0f));
+
+	mat4 world = TransformPositionScale(vec3(2.5f, 1.5f, -2.0f), vec3(0.45f));
+	mat4 worldViewProjection = projection * view * world;
+
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
@@ -308,6 +339,22 @@ void Render(App* app)
 	for (u32 i = 0; i < mesh.submeshes.size(); ++i)
 	{
 		GLuint vao = FindVAO(mesh, i, texturedMeshProgram);
+		glBindVertexArray(vao);
+
+		u32 submeshMaterialIdx = model.materialIdx[i];
+		Material& submeshMaterial = app->materials[submeshMaterialIdx];
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+		GLuint textureLocation = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+		glUniform1i(textureLocation, 0);
+	
+		GLuint matrixLocation = glGetUniformLocation(texturedMeshProgram.handle, "projectionViewMatrix");
+		glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &worldViewProjection[0][0]);
+
+		Submesh& submesh = mesh.submeshes[i];
+		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
+
 	}
 
 	/*
@@ -437,6 +484,8 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 	//Store it in the list of vas for this submesh
 	Vao vao = { vaoHandle, program.handle };
 	submesh.vaos.push_back(vao);
+
+	return vaoHandle;
 }
 
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)

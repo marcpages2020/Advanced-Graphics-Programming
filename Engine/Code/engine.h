@@ -18,6 +18,7 @@ typedef glm::vec4  vec4;
 typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
+typedef glm::mat4  mat4;
 
 struct VertexV3V2
 {
@@ -48,6 +49,10 @@ struct VertexShaderLayout
 {
 	std::vector<VertexShaderAttribute> attributes;
 };
+
+mat4 TransformScale(const vec3& scaleFactors);
+
+mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors);
 
 struct Vao
 {
@@ -121,6 +126,12 @@ enum Mode
 	Mode_Count
 };
 
+struct Camera
+{
+	vec3 position;
+	vec3 target;
+};
+
 struct App
 {
 	// Loop
@@ -133,6 +144,8 @@ struct App
 	// Graphics
 	char gpuName[64];
 	char openGlVersion[64];
+
+	Camera camera;
 
 	ivec2 displaySize;
 
@@ -157,6 +170,7 @@ struct App
 
 	// Location of the texture uniform in the textured quad shader
 	GLuint programUniformTexture;
+	GLuint texturedMeshProgram_uTexture;
 
 	// VAO object to link our screen filling quad with our textured quad shader
 	GLuint VAO;
