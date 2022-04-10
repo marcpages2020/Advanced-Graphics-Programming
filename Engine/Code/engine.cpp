@@ -247,10 +247,25 @@ void Init(App* app)
 	glBindVertexArray(0);
 	*/
 
-	app->camera.position = vec3(0.0f, 1.0f, 5.0f);
+	app->camera.position = vec3(5.0f, 10.0f, 5.0f);
 	app->camera.target = vec3(0.0f, 1.0f, 0.0f);
 
-	app->model = LoadModel(app, "Room/Room #1.obj");
+	GLint maxUniformBufferSize;
+	GLint uniformBlockAlignment;
+	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBufferSize);
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniformBlockAlignment);
+
+	for (int i = 0; i < maxUniformBufferSize; ++i)
+	{
+		GLuint bufferHandle;
+		glGenBuffers(1, &bufferHandle);
+		glBindBuffer(GL_UNIFORM_BUFFER, bufferHandle);
+		glBufferData(GL_UNIFORM_BUFFER, maxUniformBufferSize, NULL, GL_STREAM_DRAW);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	}
+
+	//app->model = LoadModel(app, "Room/Room #1.obj");
+	app->model = LoadModel(app, "Patrick/Patrick.obj");
 	
 	//Program
 	/*app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
@@ -344,17 +359,20 @@ void Render(App* app)
 		u32 submeshMaterialIdx = model.materialIdx[i];
 		Material& submeshMaterial = app->materials[submeshMaterialIdx];
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-		GLuint textureLocation = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
-		glUniform1i(textureLocation, 0);
+		if (submeshMaterial.albedoTextureIdx < app->textures.size())
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+			GLuint textureLocation = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+			glUniform1i(textureLocation, 0);
+		}
+
 	
 		GLuint matrixLocation = glGetUniformLocation(texturedMeshProgram.handle, "projectionViewMatrix");
 		glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &worldViewProjection[0][0]);
 
 		Submesh& submesh = mesh.submeshes[i];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
-
 	}
 
 	/*
@@ -476,7 +494,7 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 			}
 		}
 
-		assert(attributeWasLinked); //The submesh should provide an attribute for each vertex input
+		//assert(attributeWasLinked); //The submesh should provide an attribute for each vertex input
 	}
 
 	glBindVertexArray(0);
