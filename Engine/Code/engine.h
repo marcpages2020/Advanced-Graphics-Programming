@@ -132,6 +132,16 @@ struct Camera
 	vec3 target;
 };
 
+struct Entity
+{
+	mat4 worldMatrix;
+	mat4 worldViewProjection;
+	vec3 position;
+	u32 modelIndex;
+	u32 localParamsOffset;
+	u32 localParamsSize;
+};
+
 struct App
 {
 	// Loop
@@ -163,6 +173,8 @@ struct App
 	// Mode
 	Mode mode;
 
+	GLint uniformBlockAlignment;
+
 	// Embedded geometry (in-editor simple meshes such as
 	// a screen filling quad, a cube, a sphere...)
 	GLuint embeddedVertices;
@@ -176,12 +188,15 @@ struct App
 	GLuint VAO;
 
 	u32 model;
+	u32 bufferHandle;
 
 	std::vector<Texture> textures;
 	std::vector<Material> materials;
 	std::vector<Mesh>	 meshes;
 	std::vector<Model>	 models;
 	std::vector<Program> programs;
+
+	std::vector<Entity> entities;
 };
 
 void Init(App* app);
@@ -201,3 +216,5 @@ void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 bas
 void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial, String directory);
 void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
 u32 LoadModel(App* app, const char* filename);
+
+u32 Align(u32 value, u32 alignment);

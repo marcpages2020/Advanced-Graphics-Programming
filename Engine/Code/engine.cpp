@@ -223,50 +223,27 @@ void Init(App* app)
 		glDebugMessageCallback(OnGlError, app);
 	}
 
-	/*
-	//Geometry
-	glGenBuffers(1, &app->embeddedVertices);
-	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	glGenBuffers(1, &app->embeddedElements);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), &indices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	//Attribute State
-	glGenVertexArrays(1, &app->VAO);
-	glBindVertexArray(app->VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)12);
-	glEnableVertexAttribArray(1);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-	glBindVertexArray(0);
-	*/
-
-	app->camera.position = vec3(5.0f, 10.0f, 5.0f);
+	app->camera.position = vec3(0.0f, 1.0f, 5.0f);
 	app->camera.target = vec3(0.0f, 1.0f, 0.0f);
 
 	GLint maxUniformBufferSize;
-	GLint uniformBlockAlignment;
-	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBufferSize);
-	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniformBlockAlignment);
 
-	for (int i = 0; i < maxUniformBufferSize; ++i)
-	{
-		GLuint bufferHandle;
-		glGenBuffers(1, &bufferHandle);
-		glBindBuffer(GL_UNIFORM_BUFFER, bufferHandle);
-		glBufferData(GL_UNIFORM_BUFFER, maxUniformBufferSize, NULL, GL_STREAM_DRAW);
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	}
+	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBufferSize);
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &app->uniformBlockAlignment);
+
+	glGenBuffers(1, &app->bufferHandle);
+	glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
+	glBufferData(GL_UNIFORM_BUFFER, maxUniformBufferSize, NULL, GL_STREAM_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
 
 	//app->model = LoadModel(app, "Room/Room #1.obj");
+	Entity entity;
+	entity.position = vec3(0.0f, 0.0f, 0.0f);
 	app->model = LoadModel(app, "Patrick/Patrick.obj");
-	
+	entity.modelIndex = app->model;
+	app->entities.push_back(entity);
+
 	//Program
 	/*app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
@@ -275,7 +252,7 @@ void Init(App* app)
 	app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
-	
+
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
 	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
@@ -283,11 +260,11 @@ void Init(App* app)
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
-	app->mode = Mode_TexturedQuad;
 }
 
 void Gui(App* app)
 {
+	//Info window
 	ImGui::Begin("Info");
 	ImGui::Text("FPS: %f", 1.0f / app->deltaTime);
 	ImGui::Text("OpenGL version: %s", glGetString(GL_VERSION));
@@ -305,6 +282,31 @@ void Gui(App* app)
 		}
 
 		ImGui::TreePop();
+	}
+
+	ImGui::End();
+
+	ImGui::Begin("Editor");
+
+	float cameraPosition[3] = { app->camera.position.x, app->camera.position.y, app->camera.position.z};
+	ImGui::DragFloat3("Camera Position", cameraPosition, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+	app->camera.position = vec3(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
+
+	for (size_t i = 0; i < app->entities.size(); ++i)
+	{
+		ImGui::PushID(i);
+		float position[3] = { app->entities[i].position.x, app->entities[i].position.y, app->entities[i].position.z };
+		ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+		app->entities[i].position = vec3(position[0], position[1], position[2]);
+		ImGui::PopID();
+	}
+
+	if (ImGui::Button("Create Entity"))
+	{
+		Entity newEntity;
+		newEntity.position = vec3(0.0f);
+		newEntity.modelIndex = app->model;
+		app->entities.push_back(newEntity);
 	}
 
 	ImGui::End();
@@ -337,43 +339,71 @@ void Render(App* app)
 	mat4 projection = glm::perspective(glm::radians(60.0f), aspectRatio, znear, zfar);
 	mat4 view = glm::lookAt(app->camera.position, app->camera.target, vec3(0.0f, 1.0f, 0.0f));
 
-	mat4 world = TransformPositionScale(vec3(2.5f, 1.5f, -2.0f), vec3(0.45f));
-	mat4 worldViewProjection = projection * view * world;
-
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
 	glUseProgram(texturedMeshProgram.handle);
 
-	Model& model = app->models[app->model];
-	Mesh& mesh = app->meshes[model.meshIdx];
 
-	for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+
+	u32 bufferHead = 0;
+	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
-		GLuint vao = FindVAO(mesh, i, texturedMeshProgram);
-		glBindVertexArray(vao);
 
-		u32 submeshMaterialIdx = model.materialIdx[i];
-		Material& submeshMaterial = app->materials[submeshMaterialIdx];
+		glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
+		u8* bufferData = (u8*)glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
 
-		if (submeshMaterial.albedoTextureIdx < app->textures.size())
+		bufferHead = Align(bufferHead, app->uniformBlockAlignment);
+
+		app->entities[i].localParamsOffset = bufferHead;
+
+		app->entities[i].worldMatrix = TransformPositionScale(app->entities[i].position, vec3(0.45f));
+		app->entities[i].worldViewProjection = projection * view * app->entities[i].worldMatrix;
+
+		memcpy(bufferData + bufferHead, glm::value_ptr(app->entities[i].worldMatrix), sizeof(glm::mat4));
+		bufferHead += sizeof(glm::mat4);
+
+		memcpy(bufferData + bufferHead, glm::value_ptr(app->entities[i].worldViewProjection), sizeof(glm::mat4));
+		bufferHead += sizeof(glm::mat4);
+
+		app->entities[i].localParamsSize = bufferHead - app->entities[i].localParamsOffset;
+		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->bufferHandle, app->entities[i].localParamsOffset, app->entities[i].localParamsSize);
+
+		Model& model = app->models[app->entities[i].modelIndex];
+		Mesh& mesh = app->meshes[model.meshIdx];
+
+		for (u32 j = 0; j < mesh.submeshes.size(); ++j)
 		{
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-			GLuint textureLocation = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
-			glUniform1i(textureLocation, 0);
+			GLuint vao = FindVAO(mesh, j, texturedMeshProgram);
+			glBindVertexArray(vao);
+
+			u32 submeshMaterialIdx = model.materialIdx[j];
+			Material& submeshMaterial = app->materials[submeshMaterialIdx];
+
+			if (submeshMaterial.albedoTextureIdx < app->textures.size())
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+				GLuint textureLocation = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+				glUniform1i(textureLocation, 0);
+			}
+
+			GLuint matrixLocation = glGetUniformLocation(texturedMeshProgram.handle, "projectionViewMatrix");
+			//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
+
+			Submesh& submesh = mesh.submeshes[j];
+			glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
 		}
 
-	
-		GLuint matrixLocation = glGetUniformLocation(texturedMeshProgram.handle, "projectionViewMatrix");
-		glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &worldViewProjection[0][0]);
-
-		Submesh& submesh = mesh.submeshes[i];
-		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
+		glUnmapBuffer(GL_UNIFORM_BUFFER);
+		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
+
+
 
 	/*
 	switch (app->mode)
@@ -404,7 +434,7 @@ void Render(App* app)
 	}
 	break;
 
-	default: 
+	default:
 		break;
 	}
 	*/
@@ -428,10 +458,10 @@ void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei l
 	case GL_DEBUG_SOURCE_THIRD_PARTY:		ELOG(" - source: GL_DEBUG_SOURCE_THIRD_PARTY"); break;
 	case GL_DEBUG_SOURCE_APPLICATION:		ELOG(" - source: GL_DEBUG_SOURCE_APPLICATION"); break;
 	case GL_DEBUG_SOURCE_OTHER:				ELOG(" - source: GL_DEBUG_SOURCE_OTHER");  break;
-	}										
-											
-	switch (source)							
-	{										
+	}
+
+	switch (source)
+	{
 	case GL_DEBUG_TYPE_ERROR:				ELOG(" - source: GL_DEBUG_TYPE_ERROR"); break;
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:	ELOG(" - source: GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR"); break;
 	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:	ELOG(" - source: GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR"); break;
@@ -441,10 +471,10 @@ void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei l
 	case GL_DEBUG_TYPE_PUSH_GROUP:			ELOG(" - source: GL_DEBUG_TYPE_PUSH_GROUP"); break;
 	case GL_DEBUG_TYPE_POP_GROUP:			ELOG(" - source: GL_DEBUG_TYPE_POP_GROUP"); break;
 	case GL_DEBUG_TYPE_OTHER:				ELOG(" - source: GL_DEBUG_TYPE_OTHER"); break;
-	}										
-											
-	switch (source)							
-	{										
+	}
+
+	switch (source)
+	{
 	case GL_DEBUG_SEVERITY_HIGH:			ELOG(" - source: GL_DEBUG_SEVERITY_HIGH"); break;
 	case GL_DEBUG_SEVERITY_MEDIUM:			ELOG(" - source: GL_DEBUG_SEVERITY_MEDIUM"); break;
 	case GL_DEBUG_SEVERITY_LOW:				ELOG(" - source: GL_DEBUG_SEVERITY_LOW"); break;
@@ -482,13 +512,13 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 		{
 			if (program.vertexInputLayout.attributes[i].location == submesh.vertexBufferLayout.attributes[j].location)
 			{
-				const u32 index  = submesh.vertexBufferLayout.attributes[j].location;
-				const u32 ncomp	 = submesh.vertexBufferLayout.attributes[j].componentCount;
+				const u32 index = submesh.vertexBufferLayout.attributes[j].location;
+				const u32 ncomp = submesh.vertexBufferLayout.attributes[j].componentCount;
 				const u32 offset = submesh.vertexBufferLayout.attributes[j].offset + submesh.vertexOffset;  //attribute offset + vertex offset
 				const u32 stride = submesh.vertexBufferLayout.stride;
 				glVertexAttribPointer(index, ncomp, GL_FLOAT, GL_FALSE, stride, (void*)(u64)offset);
 				glEnableVertexAttribArray(index);
-				
+
 				attributeWasLinked = true;
 				break;
 			}
@@ -747,4 +777,9 @@ u32 LoadModel(App* app, const char* filename)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	return modelIdx;
+}
+
+u32 Align(u32 value, u32 alignment)
+{
+	return (value + alignment - 1) & ~(alignment - 1);
 }
