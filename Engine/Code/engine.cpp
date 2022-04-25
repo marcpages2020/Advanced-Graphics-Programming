@@ -223,31 +223,26 @@ void Init(App* app)
 		glDebugMessageCallback(OnGlError, app);
 	}
 
-	app->camera.position = vec3(0.0f, 1.0f, 5.0f);
-	app->camera.target = vec3(0.0f, 1.0f, 0.0f);
+	app->camera.position = vec3(0.0f, 0.0f, 5.0f);
+	app->camera.target = vec3(0.0f, 0.0f, 0.0f);
 
 	GLint maxUniformBufferSize;
 
 	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBufferSize);
-	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &app->uniformBlockAlignment);
+	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &app->uniformBufferAlignment);
 
 	glGenBuffers(1, &app->bufferHandle);
 	glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
 	glBufferData(GL_UNIFORM_BUFFER, maxUniformBufferSize, NULL, GL_STREAM_DRAW);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
+	app->cbuffer = CreateBuffer(maxUniformBufferSize, GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 
-	//app->model = LoadModel(app, "Room/Room #1.obj");
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
 	app->model = LoadModel(app, "Patrick/Patrick.obj");
 	entity.modelIndex = app->model;
 	app->entities.push_back(entity);
-
-	//Program
-	/*app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
-	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-	app->programUniformTexture = glad_glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");*/
 
 	app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
@@ -328,10 +323,7 @@ void Update(App* app)
 			program.lastWriteTimestamp = currentTimestamp;
 		}
 	}
-}
 
-void Render(App* app)
-{
 	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
 	float znear = 0.1f;
 	float zfar = 1000.0f;
@@ -339,6 +331,48 @@ void Render(App* app)
 	mat4 projection = glm::perspective(glm::radians(60.0f), aspectRatio, znear, zfar);
 	mat4 view = glm::lookAt(app->camera.position, app->camera.target, vec3(0.0f, 1.0f, 0.0f));
 
+	MapBuffer(app->cbuffer, GL_WRITE_ONLY);
+
+	app->globalParamsOffset = app->cbuffer.head;
+
+	//Global params
+	PushVec3(app->cbuffer, app->camera.position);
+	PushUInt(app->cbuffer, app->lights.size());
+
+	for (u32 i = 0; i < app->lights.size(); ++i)
+	{
+		AlignHead(app->cbuffer, sizeof(vec4));
+
+		Light& light = app->lights[i];
+		PushUInt(app->cbuffer, light.type);
+		PushVec3(app->cbuffer, light.color);
+		PushVec3(app->cbuffer, light.direction);
+		PushVec3(app->cbuffer, light.position);
+	}
+
+	app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;
+
+	for (size_t i = 0; i < app->entities.size(); ++i)
+	{
+		AlignHead(app->cbuffer, app->uniformBufferAlignment);
+
+		Entity& entity = app->entities[i];
+		mat4 world = entity.worldMatrix;
+		world = TransformPositionScale(entity.position, vec3(0.45f));
+		mat4 worldViewProjection = projection * view * world;
+
+		entity.localParamsOffset = app->cbuffer.head;
+		PushMat4(app->cbuffer, world);
+		PushMat4(app->cbuffer, worldViewProjection);
+		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
+	}
+
+	UnmapBuffer(app->cbuffer);
+}
+
+
+void Render(App* app)
+{
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -348,33 +382,16 @@ void Render(App* app)
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
 	glUseProgram(texturedMeshProgram.handle);
 
-
-
 	u32 bufferHead = 0;
 	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
-
-		glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
-		u8* bufferData = (u8*)glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-
-		bufferHead = Align(bufferHead, app->uniformBlockAlignment);
-
-		app->entities[i].localParamsOffset = bufferHead;
-
-		app->entities[i].worldMatrix = TransformPositionScale(app->entities[i].position, vec3(0.45f));
-		app->entities[i].worldViewProjection = projection * view * app->entities[i].worldMatrix;
-
-		memcpy(bufferData + bufferHead, glm::value_ptr(app->entities[i].worldMatrix), sizeof(glm::mat4));
-		bufferHead += sizeof(glm::mat4);
-
-		memcpy(bufferData + bufferHead, glm::value_ptr(app->entities[i].worldViewProjection), sizeof(glm::mat4));
-		bufferHead += sizeof(glm::mat4);
-
-		app->entities[i].localParamsSize = bufferHead - app->entities[i].localParamsOffset;
-		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->bufferHandle, app->entities[i].localParamsOffset, app->entities[i].localParamsSize);
-
 		Model& model = app->models[app->entities[i].modelIndex];
 		Mesh& mesh = app->meshes[model.meshIdx];
+		
+		Entity& entity = app->entities[i];
+
+		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);	
+		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);	
 
 		for (u32 j = 0; j < mesh.submeshes.size(); ++j)
 		{
@@ -402,42 +419,6 @@ void Render(App* app)
 		glUnmapBuffer(GL_UNIFORM_BUFFER);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
-
-
-
-	/*
-	switch (app->mode)
-	{
-	case Mode_TexturedQuad:
-	{
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		glViewport(0, 0, app->displaySize.x, app->displaySize.y);
-
-		Program& programTexturedGeometry = app->programs[app->texturedGeometryProgramIdx];
-		glUseProgram(programTexturedGeometry.handle);
-		glBindVertexArray(app->VAO);
-
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glUniform1i(app->programUniformTexture, 0);
-		glActiveTexture(GL_TEXTURE0);
-		GLuint textureHandle = app->textures[app->diceTexIdx].handle;
-		glBindTexture(GL_TEXTURE_2D, textureHandle);
-
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-
-		glBindVertexArray(0);
-		glUseProgram(0);
-	}
-	break;
-
-	default:
-		break;
-	}
-	*/
 
 	glPopDebugGroup();
 }
@@ -778,8 +759,59 @@ u32 LoadModel(App* app, const char* filename)
 
 	return modelIdx;
 }
+  
+bool IsPowerOf2(u32 value)
+{
+	return value && !(value & (value - 1));
+}
 
 u32 Align(u32 value, u32 alignment)
 {
 	return (value + alignment - 1) & ~(alignment - 1);
+}
+
+Buffer CreateBuffer(u32 size, GLenum type, GLenum usage)
+{
+	Buffer buffer = {};
+	buffer.size = size;
+	buffer.type = type;
+
+	glGenBuffers(1, &buffer.handle);
+	glBindBuffer(type, buffer.handle);
+	glBufferData(type, buffer.size, NULL, usage);
+	glBindBuffer(type, 0);
+
+	return buffer;
+}
+
+void BindBuffer(const Buffer& buffer)
+{
+	glBindBuffer(buffer.type, buffer.handle);
+}
+
+void MapBuffer(Buffer& buffer, GLenum access)
+{
+	glBindBuffer(buffer.type, buffer.handle);
+	buffer.data = (u8*)glMapBuffer(buffer.type, access);
+	buffer.head = 0;
+}
+
+void UnmapBuffer(Buffer& buffer)
+{
+	glUnmapBuffer(buffer.type);
+	glBindBuffer(buffer.type, 0);
+}
+
+void AlignHead(Buffer& buffer, u32 alignment)
+{
+	ASSERT(IsPowerOf2(alignment), "The alignment must be a power of 2");
+	buffer.head = Align(buffer.head, alignment);
+}
+
+void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment)
+{
+	ASSERT(buffer.data != NULL, "The buffer must be mapped first");
+	AlignHead(buffer, alignment);
+	memcpy((u8*)buffer.data + buffer.head, data, size);
+	buffer.head += size;
 }

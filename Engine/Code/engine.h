@@ -7,6 +7,17 @@
 #include "platform.h"
 #include <glad/glad.h>
 
+#define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
+#define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
+#define PushVec3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushVec4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushMat3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+#define PushMat4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
+
+#define CreateConstantBuffer(size) CreateBuffer(size, GL_UNIFORM_BUFFER, GL_STREAM_DRAW)
+#define CreateStaticVertexBuffer(size) CreateBuffer(size, GL_ARRAY_BUFFER, GL_STATIC_DRAW)
+#define CreateStaticIndexBuffer(size) CreateBuffer(size, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW)
+
 struct aiScene;
 struct aiNode;
 struct aiMesh;
@@ -58,6 +69,15 @@ struct Vao
 {
 	GLuint handle;
 	GLuint programHandle;
+};
+
+struct Buffer
+{
+	GLuint handle;
+	GLenum type;
+	u32 size;
+	u32 head;
+	void* data;
 };
 
 struct Submesh
@@ -132,6 +152,20 @@ struct Camera
 	vec3 target;
 };
 
+enum LightType
+{
+	LightType_Directional,
+	LightType_Point
+};
+
+struct Light
+{
+	LightType type;
+	vec3	  color;
+	vec3      direction;
+	vec3	  position;
+};
+
 struct Entity
 {
 	mat4 worldMatrix;
@@ -173,7 +207,9 @@ struct App
 	// Mode
 	Mode mode;
 
-	GLint uniformBlockAlignment;
+	GLint uniformBufferAlignment;
+	u32 globalParamsOffset;
+	u32 globalParamsSize;
 
 	// Embedded geometry (in-editor simple meshes such as
 	// a screen filling quad, a cube, a sphere...)
@@ -190,11 +226,14 @@ struct App
 	u32 model;
 	u32 bufferHandle;
 
+	Buffer cbuffer;
+
 	std::vector<Texture> textures;
 	std::vector<Material> materials;
 	std::vector<Mesh>	 meshes;
 	std::vector<Model>	 models;
 	std::vector<Program> programs;
+	std::vector<Light> lights;
 
 	std::vector<Entity> entities;
 };
@@ -218,3 +257,9 @@ void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 bas
 u32 LoadModel(App* app, const char* filename);
 
 u32 Align(u32 value, u32 alignment);
+Buffer CreateBuffer(u32 size, GLenum type, GLenum usage);
+void BindBuffer(const Buffer& buffer);
+void MapBuffer(Buffer& buffer, GLenum access);
+void UnmapBuffer(Buffer& buffer);
+void AlignHead(Buffer& buffer, u32 alignment);
+void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
