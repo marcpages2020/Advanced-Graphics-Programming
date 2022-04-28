@@ -238,11 +238,17 @@ void Init(App* app)
 
 	app->cbuffer = CreateBuffer(maxUniformBufferSize, GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 
+	//Entitiy
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
 	app->model = LoadModel(app, "Patrick/Patrick.obj");
 	entity.modelIndex = app->model;
 	app->entities.push_back(entity);
+
+	Light directionalLight = { LightType::LightType_Directional, vec3(1.0f), vec3(1.0f), vec3(0.0f, 1.0f, 4.0f) };
+	Light pointLight = { LightType::LightType_Point, vec3(0.6, 0.6, 0.2f), vec3(0.0), vec3(0.0f, 1.0f, 4.0f) };
+	app->lights.push_back(directionalLight);
+	//app->lights.push_back(pointLight);
 
 	app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
@@ -254,6 +260,45 @@ void Init(App* app)
 	app->blackTexIdx = LoadTexture2D(app, "color_black.png");
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
+
+	GLuint colorAttachmentHandle;
+	glGenTextures(GL_TEXTURE_2D, &colorAttachmentHandle);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	GLuint depthAttachmentHandle;
+	glGenTextures(1, &depthAttachmentHandle);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, app->displaySize.x, app->displaySize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	GLuint framebufferHandle;
+	glGenFramebuffers(1, &framebufferHandle);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferHandle);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthAttachmentHandle, 0);
+
+	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE)
+	{
+		switch (framebufferStatus)
+		{
+		case GL_FRAMEBUFFER_UNDEFINED: ELOG("GL_FRAMEBUFFER_UNDEFINED"); break;
+		default:
+			break;
+		}
+	}
+	glDrawBuffers(1, &colorAttachmentHandle);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 }
 
@@ -283,7 +328,7 @@ void Gui(App* app)
 
 	ImGui::Begin("Editor");
 
-	float cameraPosition[3] = { app->camera.position.x, app->camera.position.y, app->camera.position.z};
+	float cameraPosition[3] = { app->camera.position.x, app->camera.position.y, app->camera.position.z };
 	ImGui::DragFloat3("Camera Position", cameraPosition, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
 	app->camera.position = vec3(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
 
@@ -303,6 +348,32 @@ void Gui(App* app)
 		newEntity.modelIndex = app->model;
 		app->entities.push_back(newEntity);
 	}
+
+	if (ImGui::TreeNode("Lights"))
+	{
+		for (int i = 0; i < app->lights.size(); i++)
+		{
+			Light& light = app->lights[i];
+
+			ImGui::PushID(i * 100);
+			float position[3] = { light.position.x, light.position.y, light.position.z };
+			ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+			light.position = vec3(position[0], position[1], position[2]);
+
+			float direction[3] = { light.direction.x, light.direction.y, light.direction.z };
+			ImGui::DragFloat3("Direction", direction, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+			light.direction = vec3(direction[0], direction[1], direction[2]);
+
+			float color[3] = { light.color.r, light.color.g, light.color.b };
+			ImGui::ColorPicker3("Color", color);
+			light.color = vec3(color[0], color[1], color[2]);
+			ImGui::PopID();
+
+		}
+		ImGui::TreePop();
+	}
+
+
 
 	ImGui::End();
 }
@@ -387,11 +458,11 @@ void Render(App* app)
 	{
 		Model& model = app->models[app->entities[i].modelIndex];
 		Mesh& mesh = app->meshes[model.meshIdx];
-		
+
 		Entity& entity = app->entities[i];
 
-		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);	
-		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);	
+		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);
+		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);
 
 		for (u32 j = 0; j < mesh.submeshes.size(); ++j)
 		{
@@ -759,7 +830,7 @@ u32 LoadModel(App* app, const char* filename)
 
 	return modelIdx;
 }
-  
+
 bool IsPowerOf2(u32 value)
 {
 	return value && !(value & (value - 1));
