@@ -250,6 +250,8 @@ void Init(App* app)
 	app->lights.push_back(directionalLight);
 	//app->lights.push_back(pointLight);
 
+	Quad quad;
+
 	app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
 	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
@@ -261,45 +263,7 @@ void Init(App* app)
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
-	GLuint colorAttachmentHandle;
-	glGenTextures(GL_TEXTURE_2D, &colorAttachmentHandle);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	GLuint depthAttachmentHandle;
-	glGenTextures(1, &depthAttachmentHandle);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, app->displaySize.x, app->displaySize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	GLuint framebufferHandle;
-	glGenFramebuffers(1, &framebufferHandle);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferHandle);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, colorAttachmentHandle, 0);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthAttachmentHandle, 0);
-
-	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE)
-	{
-		switch (framebufferStatus)
-		{
-		case GL_FRAMEBUFFER_UNDEFINED: ELOG("GL_FRAMEBUFFER_UNDEFINED"); break;
-		default:
-			break;
-		}
-	}
-	glDrawBuffers(1, &colorAttachmentHandle);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+	OnScreenResize(app);
 }
 
 void Gui(App* app)
@@ -444,6 +408,14 @@ void Update(App* app)
 
 void Render(App* app)
 {
+	//Render on this framebuffer render targets
+	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
+
+	//Select on which render targets to draw
+	GLuint drawBuffers[] = { app->colorAttachmentHandle };
+	glDrawBuffers(ARRAY_COUNT(drawBuffers), drawBuffers);
+
+	//Clear color and depth
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -490,6 +462,7 @@ void Render(App* app)
 		glUnmapBuffer(GL_UNIFORM_BUFFER);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
+	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
 
 	glPopDebugGroup();
 }
@@ -586,6 +559,54 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 	submesh.vaos.push_back(vao);
 
 	return vaoHandle;
+}
+
+void OnScreenResize(App* app)
+{
+	glGenTextures(1, &app->colorAttachmentHandle);
+	glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandle);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	glGenTextures(1, &app->depthAttachmentHandle);
+	glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, app->displaySize.x, app->displaySize.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+
+	glGenFramebuffers(1, &app->framebufferHandle);
+	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, app->colorAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, app->depthAttachmentHandle, 0);
+
+	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE)
+	{
+		switch (framebufferStatus)
+		{
+		case GL_FRAMEBUFFER_UNDEFINED:						ELOG("GL_FRAMEBUFFER_UNDEFINED"); break;
+		case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:			ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT"); break;
+		case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:	ELOG("GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT"); break;
+		case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:			ELOG("GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER"); break;
+		case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:			ELOG("GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER"); break;
+		case GL_FRAMEBUFFER_UNSUPPORTED:					ELOG("GL_FRAMEBUFFER_UNSUPPORTED"); break;
+		case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:			ELOG("GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE"); break;
+		case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:		ELOG("GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS"); break;
+		default:											ELOG("Unknown framebuffer status error") break;
+		}
+	}
+	glDrawBuffers(1, &app->colorAttachmentHandle);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
@@ -829,6 +850,71 @@ u32 LoadModel(App* app, const char* filename)
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	return modelIdx;
+}
+
+u32 CreatePrimitive(App* app, PrimitiveType primitiveType)
+{
+	switch (primitiveType)
+	{
+	case PrimitiveType::QUAD:
+		app->meshes.push_back(Mesh{});
+		Mesh& mesh = app->meshes.back();
+		u32 meshIdx = (u32)app->meshes.size() - 1u;
+
+		app->models.push_back(Model{});
+		Model& model = app->models.back();
+		model.meshIdx = meshIdx;
+		u32 modelIdx = (u32)app->models.size() - 1u;
+
+		ProcessAssimpNode(scene, scene->mRootNode, &mesh, baseMeshMaterialIndex, model.materialIdx);
+
+		aiReleaseImport(scene);
+
+		u32 vertexBufferSize = 0;
+		u32 indexBufferSize = 0;
+
+		for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+		{
+			vertexBufferSize += mesh.submeshes[i].vertices.size() * sizeof(float);
+			indexBufferSize += mesh.submeshes[i].indices.size() * sizeof(u32);
+		}
+
+		glGenBuffers(1, &mesh.vertexBufferHandle);
+		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
+		glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, NULL, GL_STATIC_DRAW);
+
+		glGenBuffers(1, &mesh.indexBufferHandle);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferSize, NULL, GL_STATIC_DRAW);
+
+		u32 indicesOffset = 0;
+		u32 verticesOffset = 0;
+
+		for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+		{
+			const void* verticesData = mesh.submeshes[i].vertices.data();
+			const u32   verticesSize = mesh.submeshes[i].vertices.size() * sizeof(float);
+			glBufferSubData(GL_ARRAY_BUFFER, verticesOffset, verticesSize, verticesData);
+			mesh.submeshes[i].vertexOffset = verticesOffset;
+			verticesOffset += verticesSize;
+
+			const void* indicesData = mesh.submeshes[i].indices.data();
+			const u32   indicesSize = mesh.submeshes[i].indices.size() * sizeof(u32);
+			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indicesOffset, indicesSize, indicesData);
+			mesh.submeshes[i].indexOffset = indicesOffset;
+			indicesOffset += indicesSize;
+		}
+
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		return modelIdx;
+		break;
+	default:
+		break;
+	}
+
+	return u32();
 }
 
 bool IsPowerOf2(u32 value)

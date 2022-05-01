@@ -65,6 +65,17 @@ mat4 TransformScale(const vec3& scaleFactors);
 
 mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors);
 
+enum class PrimitiveType
+{
+	QUAD
+};
+
+struct Quad
+{
+	vec3 vertices[4] = { vec3(-0.5, -0.5, 0.0), vec3(0.5, -0.5, 0.0), vec3(0.5, 0.5, 0.0), vec3(-0.5, 0.5, 0.0) };
+	u16 indices[6] = { 0, 1, 2, 0, 2, 3 };
+};
+
 struct Vao
 {
 	GLuint handle;
@@ -226,6 +237,10 @@ struct App
 	u32 model;
 	u32 bufferHandle;
 
+	GLuint framebufferHandle;
+	GLuint colorAttachmentHandle;
+	GLuint depthAttachmentHandle;
+
 	Buffer cbuffer;
 
 	std::vector<Texture> textures;
@@ -250,11 +265,14 @@ void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei l
 
 GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program);
 
+void OnScreenResize(App* app);
+
 //Assimp
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
 void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial, String directory);
 void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
 u32 LoadModel(App* app, const char* filename);
+u32 CreatePrimitive(App* app, PrimitiveType primitiveType);
 
 u32 Align(u32 value, u32 alignment);
 Buffer CreateBuffer(u32 size, GLenum type, GLenum usage);
