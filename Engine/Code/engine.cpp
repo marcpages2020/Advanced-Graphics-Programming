@@ -238,6 +238,8 @@ void Init(App* app)
 
 	app->cbuffer = CreateBuffer(maxUniformBufferSize, GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 
+	GenerateQuad(app);
+
 	//Entitiy
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
@@ -250,10 +252,14 @@ void Init(App* app)
 	app->lights.push_back(directionalLight);
 	//app->lights.push_back(pointLight);
 
-	Quad quad;
+
+	app->texturedGeometryProgramIdx = LoadProgram(app, "textured_geometry.glsl", "TEXTURED_GEOMETRY");
+	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
+	//LoadProgramAttributes(texturedGeometryProgram);
+	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
 
 	app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
-	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
+	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
 
 	//Load Textures
@@ -263,6 +269,7 @@ void Init(App* app)
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
+	app->colorAttachmentHandles = std::vector<GLuint>(3, 999);
 	OnScreenResize(app);
 }
 
@@ -337,14 +344,14 @@ void Gui(App* app)
 		ImGui::TreePop();
 	}
 
-
-
 	ImGui::End();
 }
 
 void Update(App* app)
 {
 	// You can handle app->input keyboard/mouse here
+	HandleInput(app);
+
 	for (u64 i = 0; i < app->programs.size(); i++)
 	{
 		Program& program = app->programs[i];
@@ -412,7 +419,7 @@ void Render(App* app)
 	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
 
 	//Select on which render targets to draw
-	GLuint drawBuffers[] = { app->colorAttachmentHandle };
+	GLuint drawBuffers[] = { app->colorAttachmentHandles[0] };
 	glDrawBuffers(ARRAY_COUNT(drawBuffers), drawBuffers);
 
 	//Clear color and depth
@@ -422,7 +429,7 @@ void Render(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
-	Program& texturedMeshProgram = app->programs[app->texturedGeometryProgramIdx];
+	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
 	glUseProgram(texturedMeshProgram.handle);
 
 	u32 bufferHead = 0;
@@ -462,7 +469,13 @@ void Render(App* app)
 		glUnmapBuffer(GL_UNIFORM_BUFFER);
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 	}
-	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glPopDebugGroup();
+
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Textured quad");
+
+	DrawQuad(app);
 
 	glPopDebugGroup();
 }
@@ -563,15 +576,18 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 
 void OnScreenResize(App* app)
 {
-	glGenTextures(1, &app->colorAttachmentHandle);
-	glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandle);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	for (int i = 0; i < app->colorAttachmentHandles.size(); ++i)
+	{
+		glGenTextures(1, &app->colorAttachmentHandles[i]);
+		glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[i]);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 
 	glGenTextures(1, &app->depthAttachmentHandle);
 	glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
@@ -586,7 +602,12 @@ void OnScreenResize(App* app)
 
 	glGenFramebuffers(1, &app->framebufferHandle);
 	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, app->colorAttachmentHandle, 0);
+
+	for (int i = 0; i < app->colorAttachmentHandles.size(); ++i)
+	{
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, app->colorAttachmentHandles[i], 0);
+	}
+
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, app->depthAttachmentHandle, 0);
 
 	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -605,8 +626,29 @@ void OnScreenResize(App* app)
 		default:											ELOG("Unknown framebuffer status error") break;
 		}
 	}
-	glDrawBuffers(1, &app->colorAttachmentHandle);
+
+	GLenum buffers[12];
+	for (int i = 0; i < app->colorAttachmentHandles.size(); ++i)
+	{
+		buffers[i] = GL_COLOR_ATTACHMENT0 + i;
+	}
+
+	glDrawBuffers(app->colorAttachmentHandles.size(), buffers);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void HandleInput(App* app)
+{
+	if(app->input.mouseDelta.x != 0.0f && app->input.mouseButtons[0] == BUTTON_PRESSED)
+	{
+		app->camera.position.x -= app->input.mouseDelta.x * 0.016f;
+	}
+
+	if (app->input.mouseDelta.y != 0.0f && app->input.mouseButtons[0] == BUTTON_PRESSED)
+	{
+		app->camera.position.y += app->input.mouseDelta.y * 0.016f;
+	}
 }
 
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
@@ -852,71 +894,6 @@ u32 LoadModel(App* app, const char* filename)
 	return modelIdx;
 }
 
-u32 CreatePrimitive(App* app, PrimitiveType primitiveType)
-{
-	switch (primitiveType)
-	{
-	case PrimitiveType::QUAD:
-		app->meshes.push_back(Mesh{});
-		Mesh& mesh = app->meshes.back();
-		u32 meshIdx = (u32)app->meshes.size() - 1u;
-
-		app->models.push_back(Model{});
-		Model& model = app->models.back();
-		model.meshIdx = meshIdx;
-		u32 modelIdx = (u32)app->models.size() - 1u;
-
-		ProcessAssimpNode(scene, scene->mRootNode, &mesh, baseMeshMaterialIndex, model.materialIdx);
-
-		aiReleaseImport(scene);
-
-		u32 vertexBufferSize = 0;
-		u32 indexBufferSize = 0;
-
-		for (u32 i = 0; i < mesh.submeshes.size(); ++i)
-		{
-			vertexBufferSize += mesh.submeshes[i].vertices.size() * sizeof(float);
-			indexBufferSize += mesh.submeshes[i].indices.size() * sizeof(u32);
-		}
-
-		glGenBuffers(1, &mesh.vertexBufferHandle);
-		glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
-		glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, NULL, GL_STATIC_DRAW);
-
-		glGenBuffers(1, &mesh.indexBufferHandle);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferSize, NULL, GL_STATIC_DRAW);
-
-		u32 indicesOffset = 0;
-		u32 verticesOffset = 0;
-
-		for (u32 i = 0; i < mesh.submeshes.size(); ++i)
-		{
-			const void* verticesData = mesh.submeshes[i].vertices.data();
-			const u32   verticesSize = mesh.submeshes[i].vertices.size() * sizeof(float);
-			glBufferSubData(GL_ARRAY_BUFFER, verticesOffset, verticesSize, verticesData);
-			mesh.submeshes[i].vertexOffset = verticesOffset;
-			verticesOffset += verticesSize;
-
-			const void* indicesData = mesh.submeshes[i].indices.data();
-			const u32   indicesSize = mesh.submeshes[i].indices.size() * sizeof(u32);
-			glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indicesOffset, indicesSize, indicesData);
-			mesh.submeshes[i].indexOffset = indicesOffset;
-			indicesOffset += indicesSize;
-		}
-
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-		return modelIdx;
-		break;
-	default:
-		break;
-	}
-
-	return u32();
-}
-
 bool IsPowerOf2(u32 value)
 {
 	return value && !(value & (value - 1));
@@ -971,4 +948,56 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment)
 	AlignHead(buffer, alignment);
 	memcpy((u8*)buffer.data + buffer.head, data, size);
 	buffer.head += size;
+}
+
+void GenerateQuad(App* app)
+{
+	//Geometry
+	glGenBuffers(1, &app->quad.embeddedVertices);
+	glBindBuffer(GL_ARRAY_BUFFER, app->quad.embeddedVertices);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(app->quad.vertices), app->quad.vertices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glGenBuffers(1, &app->quad.embeddedElements);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->quad.embeddedElements);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(app->quad.indices), app->quad.indices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	//Attribute state
+	glGenVertexArrays(1, &app->quad.vao);
+	glBindVertexArray(app->quad.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, app->quad.embeddedVertices);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)12);
+	glEnableVertexAttribArray(1);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->quad.embeddedElements);
+	glBindVertexArray(0);
+}
+
+void DrawQuad(App* app)
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
+
+	Program& programTexturedGeometry = app->programs[app->texturedGeometryProgramIdx];
+	glUseProgram(programTexturedGeometry.handle);
+	glBindVertexArray(app->quad.vao);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glUniform1i(app->programUniformTexture, 0);
+	glActiveTexture(GL_TEXTURE0);
+	GLuint textureHandle = app->framebufferHandle;
+	glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[0]);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	glBindVertexArray(0);
+	glUseProgram(0);
 }

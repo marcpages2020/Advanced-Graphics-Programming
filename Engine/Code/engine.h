@@ -72,7 +72,17 @@ enum class PrimitiveType
 
 struct Quad
 {
-	vec3 vertices[4] = { vec3(-0.5, -0.5, 0.0), vec3(0.5, -0.5, 0.0), vec3(0.5, 0.5, 0.0), vec3(-0.5, 0.5, 0.0) };
+	GLuint vao;
+
+	GLuint embeddedVertices;
+	GLuint embeddedElements;
+
+	VertexV3V2 vertices[4] = { vec3(-1.0f, -1.0f, 0.0f),  vec2(0.0f, 0.0f),
+							   vec3( 1.0f, -1.0f, 0.0f),  vec2(1.0f, 0.0f),
+		                       vec3( 1.0f,  1.0f, 0.0f),  vec2(1.0f, 1.0f),
+		                       vec3(-1.0f,  1.0f, 0.0f),  vec2(0.0f, 1.0f)
+							 };
+
 	u16 indices[6] = { 0, 1, 2, 0, 2, 3 };
 };
 
@@ -224,24 +234,26 @@ struct App
 
 	// Embedded geometry (in-editor simple meshes such as
 	// a screen filling quad, a cube, a sphere...)
-	GLuint embeddedVertices;
-	GLuint embeddedElements;
+	//GLuint embeddedVertices;
+	//GLuint embeddedElements;
 
 	// Location of the texture uniform in the textured quad shader
 	GLuint programUniformTexture;
 	GLuint texturedMeshProgram_uTexture;
 
 	// VAO object to link our screen filling quad with our textured quad shader
-	GLuint VAO;
+	//GLuint VAO;
 
 	u32 model;
 	u32 bufferHandle;
 
 	GLuint framebufferHandle;
-	GLuint colorAttachmentHandle;
+	std::vector<GLuint> colorAttachmentHandles;
 	GLuint depthAttachmentHandle;
 
 	Buffer cbuffer;
+
+	Quad quad;
 
 	std::vector<Texture> textures;
 	std::vector<Material> materials;
@@ -267,12 +279,13 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program);
 
 void OnScreenResize(App* app);
 
+void HandleInput(App* app);
+
 //Assimp
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
 void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial, String directory);
 void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices);
 u32 LoadModel(App* app, const char* filename);
-u32 CreatePrimitive(App* app, PrimitiveType primitiveType);
 
 u32 Align(u32 value, u32 alignment);
 Buffer CreateBuffer(u32 size, GLenum type, GLenum usage);
@@ -281,3 +294,6 @@ void MapBuffer(Buffer& buffer, GLenum access);
 void UnmapBuffer(Buffer& buffer);
 void AlignHead(Buffer& buffer, u32 alignment);
 void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
+
+void GenerateQuad(App* app);
+void DrawQuad(App* app);
