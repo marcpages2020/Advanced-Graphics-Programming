@@ -215,8 +215,9 @@ struct App
 	ivec2 displaySize;
 
 	// program indices
-	u32 texturedMeshProgramIdx;
 	u32 texturedGeometryProgramIdx;
+	u32 texturedMeshProgramIdx;
+	u32 meshNormalsProgramIdx;
 
 	// texture indices
 	u32 diceTexIdx;
@@ -247,6 +248,7 @@ struct App
 	u32 model;
 	u32 bufferHandle;
 
+	u32 currentBuffer;
 	GLuint framebufferHandle;
 	std::vector<GLuint> colorAttachmentHandles;
 	GLuint depthAttachmentHandle;
@@ -297,3 +299,4 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
 
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
+Program& ChooseShaderProgram(App* app);

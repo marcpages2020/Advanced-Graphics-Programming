@@ -262,6 +262,10 @@ void Init(App* app)
 	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
 
+	app->meshNormalsProgramIdx = LoadProgram(app, "normals_mesh.glsl", "SHOW_MESH_NORMALS");
+	Program& meshNormalsProgram = app->programs[app->meshNormalsProgramIdx];
+	LoadProgramAttributes(meshNormalsProgram);
+
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
 	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
@@ -269,7 +273,7 @@ void Init(App* app)
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
-	app->colorAttachmentHandles = std::vector<GLuint>(3, 999);
+	app->colorAttachmentHandles = std::vector<GLuint>(1, 999);
 	OnScreenResize(app);
 }
 
@@ -342,6 +346,21 @@ void Gui(App* app)
 
 		}
 		ImGui::TreePop();
+	}
+
+	const char* buffers[] = { "RENDER", "DEPTH", "NORMALS" };
+	if (ImGui::BeginCombo("Buffers", buffers[app->currentBuffer]))
+	{
+		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
+		{
+			bool isSelected = (i == app->currentBuffer);
+			if (ImGui::Selectable(buffers[i], isSelected))
+			{
+				app->currentBuffer = i;
+			}
+		}
+
+		ImGui::EndCombo();
 	}
 
 	ImGui::End();
@@ -429,8 +448,8 @@ void Render(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
-	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-	glUseProgram(texturedMeshProgram.handle);
+	Program& program = ChooseShaderProgram(app);
+	glUseProgram(program.handle);
 
 	u32 bufferHead = 0;
 	for (size_t i = 0; i < app->entities.size(); ++i)
@@ -445,7 +464,7 @@ void Render(App* app)
 
 		for (u32 j = 0; j < mesh.submeshes.size(); ++j)
 		{
-			GLuint vao = FindVAO(mesh, j, texturedMeshProgram);
+			GLuint vao = FindVAO(mesh, j, program);
 			glBindVertexArray(vao);
 
 			u32 submeshMaterialIdx = model.materialIdx[j];
@@ -455,11 +474,11 @@ void Render(App* app)
 			{
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-				GLuint textureLocation = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+				GLuint textureLocation = glGetUniformLocation(program.handle, "uTexture");
 				glUniform1i(textureLocation, 0);
 			}
 
-			GLuint matrixLocation = glGetUniformLocation(texturedMeshProgram.handle, "projectionViewMatrix");
+			GLuint matrixLocation = glGetUniformLocation(program.handle, "projectionViewMatrix");
 			//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
 
 			Submesh& submesh = mesh.submeshes[j];
@@ -640,7 +659,7 @@ void OnScreenResize(App* app)
 
 void HandleInput(App* app)
 {
-	if(app->input.mouseDelta.x != 0.0f && app->input.mouseButtons[0] == BUTTON_PRESSED)
+	if (app->input.mouseDelta.x != 0.0f && app->input.mouseButtons[0] == BUTTON_PRESSED)
 	{
 		app->camera.position.x -= app->input.mouseDelta.x * 0.016f;
 	}
@@ -978,7 +997,7 @@ void GenerateQuad(App* app)
 void DrawQuad(App* app)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
+
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -994,10 +1013,44 @@ void DrawQuad(App* app)
 	glUniform1i(app->programUniformTexture, 0);
 	glActiveTexture(GL_TEXTURE0);
 	GLuint textureHandle = app->framebufferHandle;
-	glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[0]);
+
+	if (app->currentBuffer < app->colorAttachmentHandles.size())
+	{
+		glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[app->currentBuffer]);
+	}
+	else
+	{
+		if (app->currentBuffer == app->colorAttachmentHandles.size())
+		{
+			glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
+		}
+		else
+		{
+			glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[0]);
+		}
+
+	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
 	glBindVertexArray(0);
 	glUseProgram(0);
+}
+
+Program& ChooseShaderProgram(App* app)
+{
+
+	//DEPTH
+	if (app->currentBuffer == app->colorAttachmentHandles.size() + 0)
+	{
+		return app->programs[app->texturedMeshProgramIdx];
+	}
+	//NORMALS
+	else if (app->currentBuffer == app->colorAttachmentHandles.size() + 1)
+	{
+		return app->programs[app->meshNormalsProgramIdx];
+	}
+
+	//COLOR
+	return app->programs[app->texturedMeshProgramIdx];
 }
