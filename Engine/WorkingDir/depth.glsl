@@ -1,0 +1,33 @@
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+#ifdef SHOW_DEPTH
+
+#if defined(VERTEX) ///////////////////////////////////////////////////
+
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec2 aTexCoord;
+
+out vec2 vTexCoord;
+
+void main()
+{
+    vTexCoord = aTexCoord;
+    gl_Position = vec4(aPosition, 1.0);
+}
+
+#elif defined(FRAGMENT) ///////////////////////////////////////////////
+
+in vec2 vTexCoord;
+
+uniform sampler2D uTexture;
+
+layout(location = 0) out vec4 oColor;
+
+void main()
+{
+    oColor = vec4(vec3(texture(uTexture, vTexCoord).r), 1.0);
+}
+
+#endif
+#endif

@@ -1,17 +1,9 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-#ifdef SHOW_TEXTURED_MESH
+#ifdef SHOW_ALBEDO
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
-
-struct Light
-{
-    unsigned int type;
-    vec3 color;
-    vec3 direction;
-    vec3 position;
-};
 
 layout(location=0) in vec3 aPosition;
 layout(location=1) in vec3 aNormal;
@@ -20,8 +12,6 @@ layout(location=2) in vec2 aTexCoord;
 layout(binding = 0, std140) uniform GlobalParams
 {
     vec3         uCameraPosition;
-    unsigned int uLightCount;
-    Light        uLight[16];
 };
 
 layout(binding = 1, std140) uniform LocalParams
@@ -66,8 +56,6 @@ uniform sampler2D uTexture;
 layout(binding = 0, std140) uniform GlobalParams
 {
     vec3 uCameraPosition;
-    unsigned int uLightCount;
-    Light uLight[16];
 };
 
 layout(location = 0) out vec4 oColor;
@@ -75,43 +63,6 @@ layout(location = 0) out vec4 oColor;
 void main()
 {
     oColor = texture(uTexture, vTexCoord);
-
-    for(int i = 0; i < uLightCount; ++i)
-    {
-        vec3 lightDir = normalize(uLight[i].direction);
-        if(uLight[i].type == 1)
-        {
-            lightDir = vPosition - uLight[i].position;
-            lightDir = normalize(-lightDir);
-        }
-        float ambientStrenght = 0.2;
-        vec3  ambient = ambientStrenght * uLight[i].color;
-
-        float diff = max(dot(vNormal, lightDir), 0.0f);
-        vec3 diffuse = diff * uLight[i].color;
-
-        float specularStrength = 0.1f;
-        vec3 reflectDir = reflect(-lightDir, vNormal);
-      
-        float spec = pow(max(dot(vViewDir, reflectDir), 0.0f), 2);
-        vec3 specular = specularStrength * spec * uLight[i].color;
-
-      if(uLight[i].type == 1)
-      {
-        float constant = 1.0f;
-        float linear = 0.09f;
-        float quadratic = 0.032f;
-
-        float distance = length(uLight[i].position - vPosition);
-        float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
-
-        ambient *= attenuation;
-        diffuse *= attenuation;
-        specular *= attenuation;
-      }
-    
-        oColor.rgb *= (ambient + diffuse + specular);    
-    }
 }
 
 #endif

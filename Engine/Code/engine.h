@@ -6,6 +6,7 @@
 
 #include "platform.h"
 #include <glad/glad.h>
+#include <map>
 
 #define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
 #define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
@@ -216,7 +217,10 @@ struct App
 
 	// program indices
 	u32 texturedGeometryProgramIdx;
+	
+	u32 albedoMeshProgramIdx;
 	u32 texturedMeshProgramIdx;
+	u32 depthProgramIdx;
 	u32 meshNormalsProgramIdx;
 
 	// texture indices
@@ -248,7 +252,9 @@ struct App
 	u32 model;
 	u32 bufferHandle;
 
-	u32 currentBuffer;
+	u32 currentUserProgram = 0;
+	u32 currentMeshProgram;
+	u32 currentQuadProgram;
 	GLuint framebufferHandle;
 	std::vector<GLuint> colorAttachmentHandles;
 	GLuint depthAttachmentHandle;
@@ -257,14 +263,15 @@ struct App
 
 	Quad quad;
 
-	std::vector<Texture> textures;
+	std::vector<Texture>  textures;
 	std::vector<Material> materials;
-	std::vector<Mesh>	 meshes;
-	std::vector<Model>	 models;
-	std::vector<Program> programs;
-	std::vector<Light> lights;
+	std::vector<Mesh>	  meshes;
+	std::vector<Model>	  models;
+	std::vector<Program>  programs;
+	std::vector<Light>    lights;
 
 	std::vector<Entity> entities;
+	std::vector<Program> changeableShaders;
 };
 
 void Init(App* app);
@@ -299,4 +306,3 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
 
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
-Program& ChooseShaderProgram(App* app);

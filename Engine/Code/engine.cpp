@@ -252,19 +252,29 @@ void Init(App* app)
 	app->lights.push_back(directionalLight);
 	//app->lights.push_back(pointLight);
 
-
 	app->texturedGeometryProgramIdx = LoadProgram(app, "textured_geometry.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-	//LoadProgramAttributes(texturedGeometryProgram);
 	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
+	app->currentQuadProgram = app->texturedGeometryProgramIdx;
 
-	app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
-	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-	LoadProgramAttributes(texturedMeshProgram);
+	app->albedoMeshProgramIdx = LoadProgram(app, "albedo.glsl", "SHOW_ALBEDO");
+	Program& albedoProgram = app->programs[app->albedoMeshProgramIdx];
+	LoadProgramAttributes(albedoProgram);
 
-	app->meshNormalsProgramIdx = LoadProgram(app, "normals_mesh.glsl", "SHOW_MESH_NORMALS");
+	app->depthProgramIdx = LoadProgram(app, "depth.glsl", "SHOW_DEPTH");
+	Program& depthProgram = app->programs[app->depthProgramIdx];
+	LoadProgramAttributes(depthProgram);
+
+	app->meshNormalsProgramIdx = LoadProgram(app, "normals.glsl", "SHOW_NORMALS");
 	Program& meshNormalsProgram = app->programs[app->meshNormalsProgramIdx];
 	LoadProgramAttributes(meshNormalsProgram);
+
+	app->texturedMeshProgramIdx = LoadProgram(app, "final_render.glsl", "SHOW_FINAL_RENDER");
+	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+	LoadProgramAttributes(texturedMeshProgram);
+	app->currentMeshProgram = app->texturedMeshProgramIdx;
+
+	app->currentUserProgram = 3;
 
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
@@ -348,16 +358,39 @@ void Gui(App* app)
 		ImGui::TreePop();
 	}
 
-	const char* buffers[] = { "RENDER", "DEPTH", "NORMALS" };
-	if (ImGui::BeginCombo("Buffers", buffers[app->currentBuffer]))
+	const char* buffers[] = { "ALBEDO", "DEPTH", "NORMALS", "RENDER"};
+	if (ImGui::BeginCombo("Buffers", buffers[app->currentUserProgram]))
 	{
 		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
 		{
-			bool isSelected = (i == app->currentBuffer);
+			bool isSelected = (i == app->currentUserProgram);
 			if (ImGui::Selectable(buffers[i], isSelected))
 			{
-				app->currentBuffer = i;
+				switch (i)
+				{
+				case 0: 
+					app->currentQuadProgram = app->texturedGeometryProgramIdx;
+					app->currentMeshProgram = app->albedoMeshProgramIdx;
+					break;
+				case 1: 
+					app->currentQuadProgram = app->depthProgramIdx; 
+					app->currentMeshProgram = app->texturedMeshProgramIdx;
+					break;
+				case 2: 
+					app->currentQuadProgram = app->texturedGeometryProgramIdx;
+					app->currentMeshProgram = app->meshNormalsProgramIdx;
+					break;
+				case 3:
+					app->currentQuadProgram = app->texturedGeometryProgramIdx;
+					app->currentMeshProgram = app->texturedMeshProgramIdx;
+					break;
+				default: 
+					break;
+				}
+
+				app->currentUserProgram = i;
 			}
+
 		}
 
 		ImGui::EndCombo();
@@ -448,7 +481,7 @@ void Render(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
-	Program& program = ChooseShaderProgram(app);
+	Program& program = app->programs[app->currentMeshProgram];
 	glUseProgram(program.handle);
 
 	u32 bufferHead = 0;
@@ -1003,7 +1036,7 @@ void DrawQuad(App* app)
 
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
 
-	Program& programTexturedGeometry = app->programs[app->texturedGeometryProgramIdx];
+	Program& programTexturedGeometry = app->programs[app->currentQuadProgram];
 	glUseProgram(programTexturedGeometry.handle);
 	glBindVertexArray(app->quad.vao);
 
@@ -1014,43 +1047,17 @@ void DrawQuad(App* app)
 	glActiveTexture(GL_TEXTURE0);
 	GLuint textureHandle = app->framebufferHandle;
 
-	if (app->currentBuffer < app->colorAttachmentHandles.size())
+	if (app->currentQuadProgram == app->depthProgramIdx)
 	{
-		glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[app->currentBuffer]);
+		glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
 	}
-	else
+	else 
 	{
-		if (app->currentBuffer == app->colorAttachmentHandles.size())
-		{
-			glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
-		}
-		else
-		{
-			glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[0]);
-		}
-
+		glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[0]);
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
 	glBindVertexArray(0);
 	glUseProgram(0);
-}
-
-Program& ChooseShaderProgram(App* app)
-{
-
-	//DEPTH
-	if (app->currentBuffer == app->colorAttachmentHandles.size() + 0)
-	{
-		return app->programs[app->texturedMeshProgramIdx];
-	}
-	//NORMALS
-	else if (app->currentBuffer == app->colorAttachmentHandles.size() + 1)
-	{
-		return app->programs[app->meshNormalsProgramIdx];
-	}
-
-	//COLOR
-	return app->programs[app->texturedMeshProgramIdx];
 }

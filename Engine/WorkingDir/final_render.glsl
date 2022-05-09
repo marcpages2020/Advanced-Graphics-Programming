@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-#ifdef SHOW_MESH_NORMALS
+#ifdef SHOW_FINAL_RENDER
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
@@ -76,7 +76,42 @@ void main()
 {
     oColor = texture(uTexture, vTexCoord);
 
-    oColor.rgb = vNormal;    
+    for(int i = 0; i < uLightCount; ++i)
+    {
+        vec3 lightDir = normalize(uLight[i].direction);
+        if(uLight[i].type == 1)
+        {
+            lightDir = vPosition - uLight[i].position;
+            lightDir = normalize(-lightDir);
+        }
+        float ambientStrenght = 0.2;
+        vec3  ambient = ambientStrenght * uLight[i].color;
+
+        float diff = max(dot(vNormal, lightDir), 0.0f);
+        vec3 diffuse = diff * uLight[i].color;
+
+        float specularStrength = 0.1f;
+        vec3 reflectDir = reflect(-lightDir, vNormal);
+      
+        float spec = pow(max(dot(vViewDir, reflectDir), 0.0f), 2);
+        vec3 specular = specularStrength * spec * uLight[i].color;
+
+      if(uLight[i].type == 1)
+      {
+        float constant = 1.0f;
+        float linear = 0.09f;
+        float quadratic = 0.032f;
+
+        float distance = length(uLight[i].position - vPosition);
+        float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
+
+        ambient *= attenuation;
+        diffuse *= attenuation;
+        specular *= attenuation;
+      }
+    
+        oColor.rgb *= (ambient + diffuse + specular);    
+    }
 }
 
 #endif
