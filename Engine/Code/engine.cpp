@@ -240,6 +240,10 @@ void Init(App* app)
 
 	GenerateQuad(app);
 
+	//Engine models
+	app->directionalLightModel = LoadModel(app, "Primitives/Quad/Quad.obj");
+	app->pointLightModel = LoadModel(app, "Primitives/Sphere/Sphere.obj");
+
 	//Entitiy
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
@@ -247,34 +251,37 @@ void Init(App* app)
 	entity.modelIndex = app->model;
 	app->entities.push_back(entity);
 
-	Light directionalLight = { LightType::LightType_Directional, vec3(1.0f), vec3(1.0f), vec3(0.0f, 1.0f, 4.0f) };
-	Light pointLight = { LightType::LightType_Point, vec3(0.6, 0.6, 0.2f), vec3(0.0), vec3(0.0f, 1.0f, 4.0f) };
-	app->lights.push_back(directionalLight);
+	//Lights
+	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(0.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f)));
 	//app->lights.push_back(pointLight);
 
-	app->texturedGeometryProgramIdx = LoadProgram(app, "textured_geometry.glsl", "TEXTURED_GEOMETRY");
+	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders/textured_geometry.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
 	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
 	app->currentQuadProgram = app->texturedGeometryProgramIdx;
 
-	app->albedoMeshProgramIdx = LoadProgram(app, "albedo.glsl", "SHOW_ALBEDO");
+	app->albedoMeshProgramIdx = LoadProgram(app, "shaders/albedo.glsl", "SHOW_ALBEDO");
 	Program& albedoProgram = app->programs[app->albedoMeshProgramIdx];
 	LoadProgramAttributes(albedoProgram);
 
-	app->depthProgramIdx = LoadProgram(app, "depth.glsl", "SHOW_DEPTH");
+	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
 	Program& depthProgram = app->programs[app->depthProgramIdx];
 	LoadProgramAttributes(depthProgram);
 
-	app->meshNormalsProgramIdx = LoadProgram(app, "normals.glsl", "SHOW_NORMALS");
+	app->meshNormalsProgramIdx = LoadProgram(app, "shaders/normals.glsl", "SHOW_NORMALS");
 	Program& meshNormalsProgram = app->programs[app->meshNormalsProgramIdx];
 	LoadProgramAttributes(meshNormalsProgram);
 
-	app->texturedMeshProgramIdx = LoadProgram(app, "final_render.glsl", "SHOW_FINAL_RENDER");
+	app->positionProgramIdx = LoadProgram(app, "shaders/position.glsl", "SHOW_POSITION");
+	Program& positionProgram = app->programs[app->positionProgramIdx];
+	LoadProgramAttributes(positionProgram);
+
+	app->texturedMeshProgramIdx = LoadProgram(app, "shaders/final_render.glsl", "SHOW_FINAL_RENDER");
 	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
 	app->currentMeshProgram = app->texturedMeshProgramIdx;
 
-	app->currentUserProgram = 3;
+	app->currentUserProgram = 4;
 
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
@@ -358,7 +365,7 @@ void Gui(App* app)
 		ImGui::TreePop();
 	}
 
-	const char* buffers[] = { "ALBEDO", "DEPTH", "NORMALS", "RENDER"};
+	const char* buffers[] = { "ALBEDO", "DEPTH", "NORMALS", "POSITION", "RENDER"};
 	if (ImGui::BeginCombo("Buffers", buffers[app->currentUserProgram]))
 	{
 		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
@@ -368,29 +375,34 @@ void Gui(App* app)
 			{
 				switch (i)
 				{
-				case 0: 
+				case 0: //ALBEDO
 					app->currentQuadProgram = app->texturedGeometryProgramIdx;
 					app->currentMeshProgram = app->albedoMeshProgramIdx;
 					break;
-				case 1: 
+				case 1: //DEPTH
 					app->currentQuadProgram = app->depthProgramIdx; 
 					app->currentMeshProgram = app->texturedMeshProgramIdx;
 					break;
-				case 2: 
+				case 2: //NORMALS
 					app->currentQuadProgram = app->texturedGeometryProgramIdx;
 					app->currentMeshProgram = app->meshNormalsProgramIdx;
 					break;
-				case 3:
+				case 3: //POSITION
+					app->currentQuadProgram = app->texturedGeometryProgramIdx;
+					app->currentMeshProgram = app->positionProgramIdx;
+					break;
+				case 4: //RENDER
 					app->currentQuadProgram = app->texturedGeometryProgramIdx;
 					app->currentMeshProgram = app->texturedMeshProgramIdx;
 					break;
-				default: 
+				default: //ALBEDO
+					app->currentQuadProgram = app->texturedGeometryProgramIdx;
+					app->currentMeshProgram = app->texturedMeshProgramIdx;
 					break;
 				}
 
 				app->currentUserProgram = i;
 			}
-
 		}
 
 		ImGui::EndCombo();
@@ -438,13 +450,30 @@ void Update(App* app)
 		AlignHead(app->cbuffer, sizeof(vec4));
 
 		Light& light = app->lights[i];
-		PushUInt(app->cbuffer, light.type);
+		PushUInt(app->cbuffer, (u32)light.type);
 		PushVec3(app->cbuffer, light.color);
 		PushVec3(app->cbuffer, light.direction);
 		PushVec3(app->cbuffer, light.position);
 	}
 
 	app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;
+
+	for (size_t i = 0; i < app->lights.size(); i++)
+	{
+		AlignHead(app->cbuffer, app->uniformBufferAlignment);
+
+		Light& light = app->lights[i];
+		Entity& entity = light.entity;
+		entity.position = light.position;
+		mat4 world = entity.worldMatrix;
+		world = TransformPositionScale(entity.position, vec3(0.45f));
+		mat4 worldViewProjection = projection * view * world;
+
+		entity.localParamsOffset = app->cbuffer.head;
+		PushMat4(app->cbuffer, world);
+		PushMat4(app->cbuffer, worldViewProjection);
+		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
+	}
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
@@ -484,42 +513,16 @@ void Render(App* app)
 	Program& program = app->programs[app->currentMeshProgram];
 	glUseProgram(program.handle);
 
-	u32 bufferHead = 0;
+	for (size_t i = 0; i < app->lights.size(); i++)
+	{
+		Entity& entity = app->lights[i].entity;
+		RenderModel(app, entity, program);
+	}
+
 	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
-		Model& model = app->models[app->entities[i].modelIndex];
-		Mesh& mesh = app->meshes[model.meshIdx];
-
 		Entity& entity = app->entities[i];
-
-		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);
-		glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);
-
-		for (u32 j = 0; j < mesh.submeshes.size(); ++j)
-		{
-			GLuint vao = FindVAO(mesh, j, program);
-			glBindVertexArray(vao);
-
-			u32 submeshMaterialIdx = model.materialIdx[j];
-			Material& submeshMaterial = app->materials[submeshMaterialIdx];
-
-			if (submeshMaterial.albedoTextureIdx < app->textures.size())
-			{
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-				GLuint textureLocation = glGetUniformLocation(program.handle, "uTexture");
-				glUniform1i(textureLocation, 0);
-			}
-
-			GLuint matrixLocation = glGetUniformLocation(program.handle, "projectionViewMatrix");
-			//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
-
-			Submesh& submesh = mesh.submeshes[j];
-			glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
-		}
-
-		glUnmapBuffer(GL_UNIFORM_BUFFER);
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+		RenderModel(app, entity, program);
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -530,6 +533,41 @@ void Render(App* app)
 	DrawQuad(app);
 
 	glPopDebugGroup();
+}
+
+void RenderModel(App* app, Entity entity, Program program)
+{
+	Model& model = app->models[entity.modelIndex];
+	Mesh& mesh = app->meshes[model.meshIdx];
+
+	glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);
+	glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);
+
+	for (u32 j = 0; j < mesh.submeshes.size(); ++j)
+	{
+		GLuint vao = FindVAO(mesh, j, program);
+		glBindVertexArray(vao);
+
+		u32 submeshMaterialIdx = model.materialIdx[j];
+		Material& submeshMaterial = app->materials[submeshMaterialIdx];
+
+		if (submeshMaterial.albedoTextureIdx < app->textures.size())
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+			GLuint textureLocation = glGetUniformLocation(program.handle, "uTexture");
+			glUniform1i(textureLocation, 0);
+		}
+
+		GLuint matrixLocation = glGetUniformLocation(program.handle, "projectionViewMatrix");
+		//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
+
+		Submesh& submesh = mesh.submeshes[j];
+		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
+	}
+
+	glUnmapBuffer(GL_UNIFORM_BUFFER);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
 void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
@@ -1060,4 +1098,23 @@ void DrawQuad(App* app)
 
 	glBindVertexArray(0);
 	glUseProgram(0);
+}
+
+Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color)
+{
+	Light light;
+	light.type = lightType;
+	light.position = position;
+	light.color = color;
+	light.direction = direction;
+
+	Entity entity;
+	entity.position = position;
+
+	if		(lightType == LightType::LightType_Directional) { entity.modelIndex = app->directionalLightModel; }
+	else if (lightType == LightType::LightType_Point)		{ entity.modelIndex = app->pointLightModel; }
+
+	light.entity = entity;
+
+	return light;
 }

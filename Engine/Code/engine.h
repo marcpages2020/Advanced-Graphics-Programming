@@ -174,18 +174,10 @@ struct Camera
 	vec3 target;
 };
 
-enum LightType
+enum class LightType
 {
 	LightType_Directional,
 	LightType_Point
-};
-
-struct Light
-{
-	LightType type;
-	vec3	  color;
-	vec3      direction;
-	vec3	  position;
 };
 
 struct Entity
@@ -196,6 +188,15 @@ struct Entity
 	u32 modelIndex;
 	u32 localParamsOffset;
 	u32 localParamsSize;
+};
+
+struct Light
+{
+	LightType  type;
+	vec3	   color;
+	vec3       direction;
+	vec3	   position;
+	Entity	   entity;
 };
 
 struct App
@@ -216,12 +217,15 @@ struct App
 	ivec2 displaySize;
 
 	// program indices
+	//Quad
 	u32 texturedGeometryProgramIdx;
 	
+	//Mesh
 	u32 albedoMeshProgramIdx;
-	u32 texturedMeshProgramIdx;
 	u32 depthProgramIdx;
+	u32 positionProgramIdx;
 	u32 meshNormalsProgramIdx;
+	u32 texturedMeshProgramIdx;
 
 	// texture indices
 	u32 diceTexIdx;
@@ -248,6 +252,9 @@ struct App
 
 	// VAO object to link our screen filling quad with our textured quad shader
 	//GLuint VAO;
+
+	u32 directionalLightModel;
+	u32 pointLightModel;
 
 	u32 model;
 	u32 bufferHandle;
@@ -282,6 +289,8 @@ void Update(App* app);
 
 void Render(App* app);
 
+void RenderModel(App* app, Entity entity, Program program);
+
 void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
 
 GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program);
@@ -306,3 +315,5 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
 
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
+
+Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color = vec3(1.0f, 1.0f, 1.0f));

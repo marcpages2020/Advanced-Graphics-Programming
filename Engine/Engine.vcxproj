@@ -48,6 +48,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="WorkingDir\shaders.glsl" />
+    <None Include="WorkingDir\Shaders\albedo.glsl" />
+    <None Include="WorkingDir\Shaders\depth.glsl" />
+    <None Include="WorkingDir\Shaders\final_render.glsl" />
+    <None Include="WorkingDir\Shaders\normals.glsl" />
+    <None Include="WorkingDir\Shaders\position.glsl" />
+    <None Include="WorkingDir\Shaders\textured_geometry.glsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
