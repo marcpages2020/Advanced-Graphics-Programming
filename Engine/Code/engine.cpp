@@ -252,11 +252,13 @@ void Init(App* app)
 	app->entities.push_back(entity);
 
 	//Lights
-	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(0.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
 	//app->lights.push_back(pointLight);
 
 	app->currentRenderMode = RenderMode::FINAL_RENDER;
 
+	//QUAD
 	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders/textured_geometry.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
 	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
@@ -265,25 +267,14 @@ void Init(App* app)
 	Program& depthProgram = app->programs[app->depthProgramIdx];
 	LoadProgramAttributes(depthProgram);
 
-	//app->albedoMeshProgramIdx = LoadProgram(app, "shaders/albedo.glsl", "SHOW_ALBEDO");
-	//Program& albedoProgram = app->programs[app->albedoMeshProgramIdx];
-	//LoadProgramAttributes(albedoProgram);
-
-	//app->meshNormalsProgramIdx = LoadProgram(app, "shaders/normals.glsl", "SHOW_NORMALS");
-	//Program& meshNormalsProgram = app->programs[app->meshNormalsProgramIdx];
-	//LoadProgramAttributes(meshNormalsProgram);
-
-	//app->positionProgramIdx = LoadProgram(app, "shaders/position.glsl", "SHOW_POSITION");
-	//Program& positionProgram = app->programs[app->positionProgramIdx];
-	//LoadProgramAttributes(positionProgram);
-
-	//app->texturedMeshProgramIdx = LoadProgram(app, "shaders/final_render.glsl", "SHOW_FINAL_RENDER");
-	//Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-	//LoadProgramAttributes(texturedMeshProgram);
-
+	//MESH
 	app->texturedMeshProgramIdx = LoadProgram(app, "shaders/combined_shader.glsl", "SHOW_COMBINED");
 	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
+
+	app->lightsProgramIdx = LoadProgram(app, "shaders/lights.glsl", "SHOW_LIGHTS");
+	Program& lightsProgram = app->programs[app->lightsProgramIdx];
+	LoadProgramAttributes(lightsProgram);
 
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
@@ -485,25 +476,28 @@ void Render(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
-	Program& program = app->programs[app->texturedMeshProgramIdx];
-	glUseProgram(program.handle);
+	Program& modelProgram = app->programs[app->texturedMeshProgramIdx];
+	glUseProgram(modelProgram.handle);
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
 		Entity& entity = app->entities[i];
-		RenderModel(app, entity, program);
+		RenderModel(app, entity, modelProgram);
 	}
 
 	glPopDebugGroup();
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Lights");
 
+	Program& lightsProgram = app->programs[app->lightsProgramIdx];
+	glUseProgram(lightsProgram.handle);
+
 	if (app->currentRenderMode == RenderMode::FINAL_RENDER)
 	{
 		for (size_t i = 0; i < app->lights.size(); i++)
 		{
-			Entity& entity = app->lights[i].entity;
-			RenderModel(app, entity, program);
+			Light& light = app->lights[i];
+			RenderLight(app, light, lightsProgram);
 		}
 	}
 	glPopDebugGroup();
@@ -565,19 +559,8 @@ void RenderLight(App* app, Light light, Program program)
 		GLuint vao = FindVAO(mesh, j, program);
 		glBindVertexArray(vao);
 
-		u32 submeshMaterialIdx = model.materialIdx[j];
-		Material& submeshMaterial = app->materials[submeshMaterialIdx];
-
-		if (submeshMaterial.albedoTextureIdx < app->textures.size())
-		{
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-			GLuint textureLocation = glGetUniformLocation(program.handle, "uTexture");
-			glUniform1i(textureLocation, 0);
-		}
-
-		GLuint matrixLocation = glGetUniformLocation(program.handle, "projectionViewMatrix");
-		//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
+		GLuint lightColorLocation = glGetUniformLocation(program.handle, "uLightColor");
+		glUniform3f(lightColorLocation, light.color.r, light.color.g, light.color.b);
 
 		Submesh& submesh = mesh.submeshes[j];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);

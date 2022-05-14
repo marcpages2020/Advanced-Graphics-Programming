@@ -94,28 +94,19 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\shaders.glsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="WorkingDir\Shaders\albedo.glsl">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="WorkingDir\Shaders\depth.glsl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="WorkingDir\Shaders\final_render.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="WorkingDir\Shaders\normals.glsl">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="WorkingDir\Shaders\textured_geometry.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="WorkingDir\Shaders\position.glsl">
+    <None Include="WorkingDir\Shaders\combined_shader.glsl">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="WorkingDir\Shaders\combined_shader.glsl">
+    <None Include="WorkingDir\Shaders\lights.glsl">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

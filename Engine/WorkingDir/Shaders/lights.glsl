@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-#ifdef SHOW_POSITION
+#ifdef SHOW_LIGHTS
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
@@ -61,7 +61,7 @@ in vec3 vPosition; //In worldspace
 in vec3 vNormal;   //In worldspace
 in vec3 vViewDir;  //In worldspace
 
-uniform sampler2D uTexture;
+uniform vec3 uLightColor;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
@@ -70,13 +70,17 @@ layout(binding = 0, std140) uniform GlobalParams
     Light uLight[16];
 };
 
-layout(location = 0) out vec4 oColor;
+layout(location = 0) out vec4 rt0; //Albedo 
+layout(location = 1) out vec4 rt1; //Normals 
+layout(location = 2) out vec4 rt2; //Position 
+layout(location = 3) out vec4 rt3; //Final Render 
 
 void main()
 {
-    oColor = texture(uTexture, vTexCoord);
-
-    oColor.rgb = vPosition;  
+    rt0 = vec4(uLightColor, 1.0);
+    rt1 = vec4(vNormal, 1.0);
+    rt2 = vec4(vPosition, 1.0);
+    rt3 = rt0;
 }
 
 #endif
