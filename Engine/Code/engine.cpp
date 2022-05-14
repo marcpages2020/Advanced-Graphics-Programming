@@ -255,33 +255,35 @@ void Init(App* app)
 	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(0.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f)));
 	//app->lights.push_back(pointLight);
 
+	app->currentRenderMode = RenderMode::FINAL_RENDER;
+
 	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders/textured_geometry.glsl", "TEXTURED_GEOMETRY");
 	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
 	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
-	app->currentQuadProgram = app->texturedGeometryProgramIdx;
-
-	app->albedoMeshProgramIdx = LoadProgram(app, "shaders/albedo.glsl", "SHOW_ALBEDO");
-	Program& albedoProgram = app->programs[app->albedoMeshProgramIdx];
-	LoadProgramAttributes(albedoProgram);
 
 	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
 	Program& depthProgram = app->programs[app->depthProgramIdx];
 	LoadProgramAttributes(depthProgram);
 
-	app->meshNormalsProgramIdx = LoadProgram(app, "shaders/normals.glsl", "SHOW_NORMALS");
-	Program& meshNormalsProgram = app->programs[app->meshNormalsProgramIdx];
-	LoadProgramAttributes(meshNormalsProgram);
+	//app->albedoMeshProgramIdx = LoadProgram(app, "shaders/albedo.glsl", "SHOW_ALBEDO");
+	//Program& albedoProgram = app->programs[app->albedoMeshProgramIdx];
+	//LoadProgramAttributes(albedoProgram);
 
-	app->positionProgramIdx = LoadProgram(app, "shaders/position.glsl", "SHOW_POSITION");
-	Program& positionProgram = app->programs[app->positionProgramIdx];
-	LoadProgramAttributes(positionProgram);
+	//app->meshNormalsProgramIdx = LoadProgram(app, "shaders/normals.glsl", "SHOW_NORMALS");
+	//Program& meshNormalsProgram = app->programs[app->meshNormalsProgramIdx];
+	//LoadProgramAttributes(meshNormalsProgram);
 
-	app->texturedMeshProgramIdx = LoadProgram(app, "shaders/final_render.glsl", "SHOW_FINAL_RENDER");
+	//app->positionProgramIdx = LoadProgram(app, "shaders/position.glsl", "SHOW_POSITION");
+	//Program& positionProgram = app->programs[app->positionProgramIdx];
+	//LoadProgramAttributes(positionProgram);
+
+	//app->texturedMeshProgramIdx = LoadProgram(app, "shaders/final_render.glsl", "SHOW_FINAL_RENDER");
+	//Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+	//LoadProgramAttributes(texturedMeshProgram);
+
+	app->texturedMeshProgramIdx = LoadProgram(app, "shaders/combined_shader.glsl", "SHOW_COMBINED");
 	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
 	LoadProgramAttributes(texturedMeshProgram);
-	app->currentMeshProgram = app->texturedMeshProgramIdx;
-
-	app->currentUserProgram = 4;
 
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
@@ -290,7 +292,6 @@ void Init(App* app)
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
-	app->colorAttachmentHandles = std::vector<GLuint>(1, 999);
 	OnScreenResize(app);
 }
 
@@ -365,43 +366,15 @@ void Gui(App* app)
 		ImGui::TreePop();
 	}
 
-	const char* buffers[] = { "ALBEDO", "DEPTH", "NORMALS", "POSITION", "RENDER"};
-	if (ImGui::BeginCombo("Buffers", buffers[app->currentUserProgram]))
+	const char* buffers[] = { "ALBEDO", "NORMALS", "POSITION", "FINAL RENDER", "DEPTH" };
+	if (ImGui::BeginCombo("Buffers", buffers[(u32)app->currentRenderMode]))
 	{
 		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
 		{
-			bool isSelected = (i == app->currentUserProgram);
+			bool isSelected = (i == (u32)app->currentRenderMode);
 			if (ImGui::Selectable(buffers[i], isSelected))
 			{
-				switch (i)
-				{
-				case 0: //ALBEDO
-					app->currentQuadProgram = app->texturedGeometryProgramIdx;
-					app->currentMeshProgram = app->albedoMeshProgramIdx;
-					break;
-				case 1: //DEPTH
-					app->currentQuadProgram = app->depthProgramIdx; 
-					app->currentMeshProgram = app->texturedMeshProgramIdx;
-					break;
-				case 2: //NORMALS
-					app->currentQuadProgram = app->texturedGeometryProgramIdx;
-					app->currentMeshProgram = app->meshNormalsProgramIdx;
-					break;
-				case 3: //POSITION
-					app->currentQuadProgram = app->texturedGeometryProgramIdx;
-					app->currentMeshProgram = app->positionProgramIdx;
-					break;
-				case 4: //RENDER
-					app->currentQuadProgram = app->texturedGeometryProgramIdx;
-					app->currentMeshProgram = app->texturedMeshProgramIdx;
-					break;
-				default: //ALBEDO
-					app->currentQuadProgram = app->texturedGeometryProgramIdx;
-					app->currentMeshProgram = app->texturedMeshProgramIdx;
-					break;
-				}
-
-				app->currentUserProgram = i;
+				app->currentRenderMode = (RenderMode)i;
 			}
 		}
 
@@ -500,7 +473,9 @@ void Render(App* app)
 	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
 
 	//Select on which render targets to draw
-	GLuint drawBuffers[] = { app->colorAttachmentHandles[0] };
+	GLuint drawBuffers[] = { app->albedoAttachmentHandle, app->normalsAttachmentHandle,
+		app->positionAttachmentHandle, app->finalRenderAttachmentHandle };
+
 	glDrawBuffers(ARRAY_COUNT(drawBuffers), drawBuffers);
 
 	//Clear color and depth
@@ -510,23 +485,30 @@ void Render(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
 
-	Program& program = app->programs[app->currentMeshProgram];
+	Program& program = app->programs[app->texturedMeshProgramIdx];
 	glUseProgram(program.handle);
-
-	for (size_t i = 0; i < app->lights.size(); i++)
-	{
-		Entity& entity = app->lights[i].entity;
-		RenderModel(app, entity, program);
-	}
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
 		Entity& entity = app->entities[i];
 		RenderModel(app, entity, program);
 	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glPopDebugGroup();
+
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Lights");
+
+	if (app->currentRenderMode == RenderMode::FINAL_RENDER)
+	{
+		for (size_t i = 0; i < app->lights.size(); i++)
+		{
+			Entity& entity = app->lights[i].entity;
+			RenderModel(app, entity, program);
+		}
+	}
+	glPopDebugGroup();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Textured quad");
 
@@ -542,6 +524,41 @@ void RenderModel(App* app, Entity entity, Program program)
 
 	glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);
 	glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);
+
+	for (u32 j = 0; j < mesh.submeshes.size(); ++j)
+	{
+		GLuint vao = FindVAO(mesh, j, program);
+		glBindVertexArray(vao);
+
+		u32 submeshMaterialIdx = model.materialIdx[j];
+		Material& submeshMaterial = app->materials[submeshMaterialIdx];
+
+		if (submeshMaterial.albedoTextureIdx < app->textures.size())
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+			GLuint textureLocation = glGetUniformLocation(program.handle, "uTexture");
+			glUniform1i(textureLocation, 0);
+		}
+
+		GLuint matrixLocation = glGetUniformLocation(program.handle, "projectionViewMatrix");
+		//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
+
+		Submesh& submesh = mesh.submeshes[j];
+		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
+	}
+
+	glUnmapBuffer(GL_UNIFORM_BUFFER);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+
+void RenderLight(App* app, Light light, Program program)
+{
+	Model& model = app->models[light.entity.modelIndex];
+	Mesh& mesh = app->meshes[model.meshIdx];
+
+	glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(0), app->cbuffer.handle, app->globalParamsOffset, app->globalParamsSize);
+	glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, light.entity.localParamsOffset, light.entity.localParamsSize);
 
 	for (u32 j = 0; j < mesh.submeshes.size(); ++j)
 	{
@@ -666,18 +683,10 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 
 void OnScreenResize(App* app)
 {
-	for (int i = 0; i < app->colorAttachmentHandles.size(); ++i)
-	{
-		glGenTextures(1, &app->colorAttachmentHandles[i]);
-		glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[i]);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
+	GenerateColorTexture(app->albedoAttachmentHandle, app->displaySize);
+	GenerateColorTexture(app->normalsAttachmentHandle, app->displaySize);
+	GenerateColorTexture(app->positionAttachmentHandle, app->displaySize);
+	GenerateColorTexture(app->finalRenderAttachmentHandle, app->displaySize);
 
 	glGenTextures(1, &app->depthAttachmentHandle);
 	glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
@@ -692,13 +701,14 @@ void OnScreenResize(App* app)
 
 	glGenFramebuffers(1, &app->framebufferHandle);
 	glBindFramebuffer(GL_FRAMEBUFFER, app->framebufferHandle);
-
-	for (int i = 0; i < app->colorAttachmentHandles.size(); ++i)
-	{
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, app->colorAttachmentHandles[i], 0);
-	}
-
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, app->albedoAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, app->normalsAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, app->positionAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, app->finalRenderAttachmentHandle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, app->depthAttachmentHandle, 0);
+
+	GLenum buffers[] = { GL_COLOR_ATTACHMENT0,  GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+	glDrawBuffers(4, buffers);
 
 	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE)
@@ -716,14 +726,6 @@ void OnScreenResize(App* app)
 		default:											ELOG("Unknown framebuffer status error") break;
 		}
 	}
-
-	GLenum buffers[12];
-	for (int i = 0; i < app->colorAttachmentHandles.size(); ++i)
-	{
-		buffers[i] = GL_COLOR_ATTACHMENT0 + i;
-	}
-
-	glDrawBuffers(app->colorAttachmentHandles.size(), buffers);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -1040,6 +1042,19 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment)
 	buffer.head += size;
 }
 
+void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize)
+{
+	glGenTextures(1, &colorAttachmentHandle);
+	glBindTexture(GL_TEXTURE_2D, colorAttachmentHandle);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, displaySize.x, displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
 void GenerateQuad(App* app)
 {
 	//Geometry
@@ -1074,8 +1089,11 @@ void DrawQuad(App* app)
 
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
 
-	Program& programTexturedGeometry = app->programs[app->currentQuadProgram];
-	glUseProgram(programTexturedGeometry.handle);
+	Program& quadProgram = app->programs[app->texturedGeometryProgramIdx];
+
+	if (app->currentRenderMode == RenderMode::DEPTH) { quadProgram = app->programs[app->depthProgramIdx]; }
+
+	glUseProgram(quadProgram.handle);
 	glBindVertexArray(app->quad.vao);
 
 	glEnable(GL_BLEND);
@@ -1085,13 +1103,15 @@ void DrawQuad(App* app)
 	glActiveTexture(GL_TEXTURE0);
 	GLuint textureHandle = app->framebufferHandle;
 
-	if (app->currentQuadProgram == app->depthProgramIdx)
+
+	switch (app->currentRenderMode)
 	{
-		glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
-	}
-	else 
-	{
-		glBindTexture(GL_TEXTURE_2D, app->colorAttachmentHandles[0]);
+	case RenderMode::ALBEDO: glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
+	case RenderMode::NORMALS: glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle); break;
+	case RenderMode::POSITION: glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle); break;
+	case RenderMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
+	case RenderMode::DEPTH: glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle); break;
+	default: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
@@ -1111,8 +1131,8 @@ Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, 
 	Entity entity;
 	entity.position = position;
 
-	if		(lightType == LightType::LightType_Directional) { entity.modelIndex = app->directionalLightModel; }
-	else if (lightType == LightType::LightType_Point)		{ entity.modelIndex = app->pointLightModel; }
+	if (lightType == LightType::LightType_Directional) { entity.modelIndex = app->directionalLightModel; }
+	else if (lightType == LightType::LightType_Point) { entity.modelIndex = app->pointLightModel; }
 
 	light.entity = entity;
 

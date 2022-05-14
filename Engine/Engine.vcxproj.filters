@@ -115,5 +115,8 @@
     <None Include="WorkingDir\Shaders\position.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="WorkingDir\Shaders\combined_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

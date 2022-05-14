@@ -49,6 +49,7 @@
   <ItemGroup>
     <None Include="WorkingDir\shaders.glsl" />
     <None Include="WorkingDir\Shaders\albedo.glsl" />
+    <None Include="WorkingDir\Shaders\combined_shader.glsl" />
     <None Include="WorkingDir\Shaders\depth.glsl" />
     <None Include="WorkingDir\Shaders\final_render.glsl" />
     <None Include="WorkingDir\Shaders\normals.glsl" />
@@ -79,7 +80,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">

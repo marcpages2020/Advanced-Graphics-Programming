@@ -66,11 +66,6 @@ mat4 TransformScale(const vec3& scaleFactors);
 
 mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors);
 
-enum class PrimitiveType
-{
-	QUAD
-};
-
 struct Quad
 {
 	GLuint vao;
@@ -162,6 +157,15 @@ struct Program
 	VertexShaderLayout vertexInputLayout;
 };
 
+enum class RenderMode
+{
+	ALBEDO,
+	NORMALS,
+	POSITION,
+	FINAL_RENDER,
+	DEPTH
+};
+
 enum Mode
 {
 	Mode_TexturedQuad,
@@ -219,13 +223,9 @@ struct App
 	// program indices
 	//Quad
 	u32 texturedGeometryProgramIdx;
-	
-	//Mesh
-	u32 albedoMeshProgramIdx;
-	u32 depthProgramIdx;
-	u32 positionProgramIdx;
-	u32 meshNormalsProgramIdx;
 	u32 texturedMeshProgramIdx;
+	u32 depthProgramIdx;
+	u32 lightsProgramIdx;
 
 	// texture indices
 	u32 diceTexIdx;
@@ -259,11 +259,16 @@ struct App
 	u32 model;
 	u32 bufferHandle;
 
-	u32 currentUserProgram = 0;
-	u32 currentMeshProgram;
-	u32 currentQuadProgram;
 	GLuint framebufferHandle;
-	std::vector<GLuint> colorAttachmentHandles;
+	//std::vector<GLuint> colorAttachmentHandles;
+
+	RenderMode currentRenderMode;
+
+	GLuint currentAttachmentHandle;
+	GLuint albedoAttachmentHandle;
+	GLuint normalsAttachmentHandle;
+	GLuint positionAttachmentHandle;
+	GLuint finalRenderAttachmentHandle;
 	GLuint depthAttachmentHandle;
 
 	Buffer cbuffer;
@@ -290,6 +295,7 @@ void Update(App* app);
 void Render(App* app);
 
 void RenderModel(App* app, Entity entity, Program program);
+void RenderLight(App* app, Light light, Program program);
 
 void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
 
@@ -312,6 +318,7 @@ void MapBuffer(Buffer& buffer, GLenum access);
 void UnmapBuffer(Buffer& buffer);
 void AlignHead(Buffer& buffer, u32 alignment);
 void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
+void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize);
 
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
