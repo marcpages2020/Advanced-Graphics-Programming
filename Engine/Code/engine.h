@@ -49,7 +49,7 @@ class Camera
 {
 public:
 	Camera();
-	Camera(vec3 _position, vec3 _front, vec3 _worldUp = vec3(0.0f, 1.0f, 0.0f));
+	Camera(glm::vec3 position, glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
 
 	vec3 position;
 	vec3 front;
@@ -57,17 +57,15 @@ public:
 	vec3 right;
 	vec3 worldUp;
 
-	float yaw;
-	float pitch;
+	float yaw = -90.0f;
+	float pitch = 0.0f;
 
 	float movementSpeed = 0.5f;
 	float mouseSensitivity = 0.5f;
 	float zoom = 0.5f;
 
-	vec3 target;
-
 	mat4 GetViewMatrix();
-	void ProcessKeyboard(vec3 direction, float deltaTime);
+	void ProcessKeyboard(Camera_Movement direction, float deltaTime);
 	void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
 	void ProcessMouseScroll(float yoffset);
 

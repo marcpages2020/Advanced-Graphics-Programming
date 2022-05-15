@@ -116,8 +116,7 @@ void OnGlfwCloseWindow(GLFWwindow* window)
 
 int main()
 {
-    App app =
-    {};
+    App app = {};
     app.deltaTime   = 1.0f/60.0f;
     app.displaySize = ivec2(WINDOW_WIDTH, WINDOW_HEIGHT);
     app.isRunning   = true;

@@ -231,8 +231,7 @@ void Init(App* app)
 		glDebugMessageCallback(OnGlError, app);
 	}
 
-	app->camera.position = vec3(0.0f, 0.0f, 5.0f);
-	app->camera.target = vec3(0.0f, 0.0f, 0.0f);
+	app->camera = Camera(vec3(0.0f, 0.0f, 5.0f));
 
 	GLint maxUniformBufferSize;
 
@@ -265,7 +264,7 @@ void Init(App* app)
 	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 1.0f)));
 	
 	//Point
-	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.0f, 0.0f, 1.0f), vec3(1.0f), vec3(0.0f, 1.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.0f, 1.0f, 1.0f), vec3(1.0f), vec3(0.0f, 1.0f, 0.0f)));
 	//app->lights.push_back(pointLight);
 
 	app->currentRenderMode = RenderMode::FINAL_RENDER;
@@ -324,25 +323,56 @@ void Gui(App* app)
 
 	ImGui::Begin("Editor");
 
+	ImGui::Dummy(ImVec2(0.0f, 5.0f));
+	
+	ImGui::Text("Camera");
+
 	float cameraPosition[3] = { app->camera.position.x, app->camera.position.y, app->camera.position.z };
-	ImGui::DragFloat3("Camera Position", cameraPosition, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+	ImGui::DragFloat3("Camera position", cameraPosition, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
 	app->camera.position = vec3(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
+
+	ImGui::DragFloat("Movement speed", &app->camera.movementSpeed, 0.05f, 0.0f, 200.0f, "%.2f", 1.0f);
+	ImGui::DragFloat("Mouse Sensitivity", &app->camera.mouseSensitivity, 0.02f, 0.0f, 1.0f, "%.2f", 1.0f);
+
 
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
 	ImGui::Separator();
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-	ImGui::Text("Entities");
-
-	ImGui::Dummy(ImVec2(0.0f, 5.0f));
-
-	for (size_t i = 0; i < app->entities.size(); ++i)
+	const char* buffers[] = { "ALBEDO", "NORMALS", "POSITION", "FINAL RENDER", "DEPTH" };
+	if (ImGui::BeginCombo("Buffers", buffers[(u32)app->currentRenderMode]))
 	{
-		ImGui::PushID(i);
-		float position[3] = { app->entities[i].position.x, app->entities[i].position.y, app->entities[i].position.z };
-		ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
-		app->entities[i].position = vec3(position[0], position[1], position[2]);
-		ImGui::PopID();
+		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
+		{
+			bool isSelected = (i == (u32)app->currentRenderMode);
+			if (ImGui::Selectable(buffers[i], isSelected))
+			{
+				app->currentRenderMode = (RenderMode)i;
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+
+	ImGui::Dummy(ImVec2(0.0f, 10.0f));
+	ImGui::Separator();
+	ImGui::Dummy(ImVec2(0.0f, 10.0f));
+	
+	if (ImGui::TreeNode("Entities"))
+	{
+		for (size_t i = 0; i < app->entities.size(); ++i)
+		{
+			ImGui::PushID(i);
+			std::string entityName = "Entity: " + std::to_string(i);
+
+			ImGui::Text(entityName.c_str());
+
+			float position[3] = { app->entities[i].position.x, app->entities[i].position.y, app->entities[i].position.z };
+			ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+			app->entities[i].position = vec3(position[0], position[1], position[2]);
+			ImGui::PopID();
+		}
+		ImGui::TreePop();
 	}
 
 	ImGui::Dummy(ImVec2(0.0f, 5.0f));
@@ -393,21 +423,6 @@ void Gui(App* app)
 		ImGui::TreePop();
 	}
 
-	const char* buffers[] = { "ALBEDO", "NORMALS", "POSITION", "FINAL RENDER", "DEPTH" };
-	if (ImGui::BeginCombo("Buffers", buffers[(u32)app->currentRenderMode]))
-	{
-		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
-		{
-			bool isSelected = (i == (u32)app->currentRenderMode);
-			if (ImGui::Selectable(buffers[i], isSelected))
-			{
-				app->currentRenderMode = (RenderMode)i;
-			}
-		}
-
-		ImGui::EndCombo();
-	}
-
 	ImGui::End();
 }
 
@@ -434,8 +449,8 @@ void Update(App* app)
 	float znear = 0.1f;
 	float zfar = 1000.0f;
 
-	mat4 projection = glm::perspective(glm::radians(60.0f), aspectRatio, znear, zfar);
-	mat4 view = glm::lookAt(app->camera.position, app->camera.target, vec3(0.0f, 1.0f, 0.0f));
+	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
+	mat4 view = app->camera.GetViewMatrix();
 
 	MapBuffer(app->cbuffer, GL_WRITE_ONLY);
 
@@ -754,15 +769,25 @@ void OnScreenResize(App* app)
 
 void HandleInput(App* app)
 {
-	if (app->input.mouseDelta.x != 0.0f && app->input.mouseButtons[0] == BUTTON_PRESSED)
-	{
-		app->camera.position.x -= app->input.mouseDelta.x * 0.016f;
+	if (app->input.keys[K_W] == BUTTON_PRESSED) {
+		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_FORWARD, app->deltaTime); 
+	}
+	if (app->input.keys[K_A] == BUTTON_PRESSED) {
+		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_LEFT, app->deltaTime);
+	}
+	if (app->input.keys[K_S] == BUTTON_PRESSED) {
+		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_BACKWARD, app->deltaTime);
+	}
+	if (app->input.keys[K_D] == BUTTON_PRESSED) {
+		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_RIGHT, app->deltaTime);
 	}
 
-	if (app->input.mouseDelta.y != 0.0f && app->input.mouseButtons[0] == BUTTON_PRESSED)
+	if (app->input.mouseButtons[LEFT] == BUTTON_PRESSED ||  app->input.mouseButtons[RIGHT] == BUTTON_PRESSED)
 	{
-		app->camera.position.y += app->input.mouseDelta.y * 0.016f;
+		app->camera.ProcessMouseMovement(app->input.mouseDelta.x, -app->input.mouseDelta.y);
 	}
+
+	//app->camera.ProcessMouseScroll(app->input.mouseDelta);
 }
 
 void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
@@ -1162,13 +1187,23 @@ Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, 
 }
 
 Camera::Camera()
-{}
+{
+	position = vec3(0.0f, 0.0f, 0.0f);
+	front = vec3(0.0f, -1.0f, 0.0f);
+	right = vec3(1.0f, 0.0f, 0.0f);
+	up = worldUp = vec3(0.0f, 1.0f, 0.0f);
+	movementSpeed = SPEED;
+	mouseSensitivity = SENSITIVITY;
+	zoom = ZOOM;
+}
 
-Camera::Camera(vec3 _position, vec3 _front, vec3 _worldUp)
+Camera::Camera(glm::vec3 _position, glm::vec3 _up, float _yaw, float _pitch) : front(glm::vec3(0.0f, 0.0f, -1.0f)), movementSpeed(SPEED), mouseSensitivity(SENSITIVITY), zoom(ZOOM)
 {
 	position = _position;
-	front = _front;
-	worldUp = _worldUp;
+	worldUp = _up;
+	yaw = _yaw;
+	pitch = _pitch;
+	UpdateCameraVectors();
 }
 
 mat4 Camera::GetViewMatrix()
@@ -1176,10 +1211,50 @@ mat4 Camera::GetViewMatrix()
 	return glm::lookAt(position, position + front, up);
 }
 
+void Camera::ProcessKeyboard(Camera_Movement direction,  float deltaTime)
+{
+	float velocity = movementSpeed * deltaTime;
+	if (direction == CAMERA_FORWARD)
+		position += front * velocity;
+	if (direction == CAMERA_BACKWARD)
+		position -= front * velocity;
+	if (direction == CAMERA_LEFT)
+		position -= right * velocity;
+	if (direction == CAMERA_RIGHT)
+		position += right * velocity;
+}
+
+void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch)
+{
+	xoffset *= mouseSensitivity;
+	yoffset *= mouseSensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	// make sure that when pitch is out of bounds, screen doesn't get flipped
+	if (constrainPitch)
+	{
+		if (pitch > 89.0f)
+			pitch = 89.0f;
+		if (pitch < -89.0f)
+			pitch = -89.0f;
+	}
+
+	// update Front, Right and Up Vectors using the updated Euler angles
+	UpdateCameraVectors();
+}
+
+void Camera::ProcessMouseScroll(float yoffset)
+{
+	zoom -= (float)yoffset;
+	if (zoom < 1.0f) { zoom = 1.0f; }
+	if (zoom > 45.0f) { zoom = 45.0f; }
+}
+
 void Camera::UpdateCameraVectors()
 {
 	// calculate the new Front vector
-	glm::vec3 front;
 	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 	front.y = sin(glm::radians(pitch));
 	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
