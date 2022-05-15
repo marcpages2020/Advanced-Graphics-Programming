@@ -249,8 +249,8 @@ void Init(App* app)
 	GenerateQuad(app);
 
 	//Engine models
-	app->directionalLightModel = LoadModel(app, "Primitives/Quad/Quad.obj");
-	app->pointLightModel = LoadModel(app, "Primitives/Sphere/Sphere.obj");
+	app->directionalLightModel = LoadModel(app, "Primitives/Quad/quad.obj");
+	app->pointLightModel = LoadModel(app, "Primitives/Sphere/sphere.obj");
 
 	//Entitiy
 	Entity entity;
@@ -260,9 +260,12 @@ void Init(App* app)
 	app->entities.push_back(entity);
 
 	//Lights
+	//Directional
 	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
 	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 1.0f)));
-	//app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
+	
+	//Point
+	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.0f, 0.0f, 1.0f), vec3(1.0f), vec3(0.0f, 1.0f, 0.0f)));
 	//app->lights.push_back(pointLight);
 
 	app->currentRenderMode = RenderMode::FINAL_RENDER;
@@ -325,6 +328,14 @@ void Gui(App* app)
 	ImGui::DragFloat3("Camera Position", cameraPosition, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
 	app->camera.position = vec3(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
 
+	ImGui::Dummy(ImVec2(0.0f, 10.0f));
+	ImGui::Separator();
+	ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+	ImGui::Text("Entities");
+
+	ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
 	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
 		ImGui::PushID(i);
@@ -334,6 +345,8 @@ void Gui(App* app)
 		ImGui::PopID();
 	}
 
+	ImGui::Dummy(ImVec2(0.0f, 5.0f));
+
 	if (ImGui::Button("Create Entity"))
 	{
 		Entity newEntity;
@@ -342,13 +355,24 @@ void Gui(App* app)
 		app->entities.push_back(newEntity);
 	}
 
+	ImGui::Dummy(ImVec2(0.0f, 7.5f));
+	ImGui::Separator();
+	ImGui::Dummy(ImVec2(0.0f, 7.5f));
+
 	if (ImGui::TreeNode("Lights"))
 	{
 		for (int i = 0; i < app->lights.size(); i++)
 		{
 			Light& light = app->lights[i];
 
-			ImGui::PushID(i * 100);
+			ImGui::PushID(i * 1000);
+
+			std::string lightName = "Light: " + std::to_string(i);
+			lightName += light.type == LightType::LightType_Directional ? " - Directional Light" : " - Point Light";
+			ImGui::Text(lightName.c_str());
+
+			ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
 			float position[3] = { light.position.x, light.position.y, light.position.z };
 			ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
 			light.position = vec3(position[0], position[1], position[2]);
@@ -362,6 +386,9 @@ void Gui(App* app)
 			light.color = vec3(color[0], color[1], color[2]);
 			ImGui::PopID();
 
+			ImGui::Dummy(ImVec2(0.0f, 10.0f));
+			ImGui::Separator();
+			ImGui::Dummy(ImVec2(0.0f, 15.0f));
 		}
 		ImGui::TreePop();
 	}

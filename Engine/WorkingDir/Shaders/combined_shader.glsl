@@ -76,6 +76,7 @@ layout(location = 2) out vec4 rt2; //Position
 layout(location = 3) out vec4 rt3; //Final Render 
 
 vec3 CalculateDirectionalLight(Light light, vec3 normal, vec3 viewDir);
+vec3 CalculatePointLight(Light light, vec3 normal, vec3 viewDir);
 
 void main()
 {
@@ -95,19 +96,7 @@ void main()
         }
         else
         {
-            /* lightDir = vPosition - uLight[i].position;
-            lightDir = normalize(-lightDir);
-
-            float constant = 1.0f;
-            float linear = 0.09f;
-            float quadratic = 0.032f;
-
-            float distance = length(uLight[i].position - vPosition);
-            float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
-
-            ambient *= attenuation;
-            diffuse *= attenuation;
-            specular *= attenuation; */
+            lightResult = CalculatePointLight(uLight[i], normalize(vNormal), vViewDir);
         }
         
         rt3.rgb += lightResult * rt0.rgb;    
@@ -129,6 +118,37 @@ vec3 CalculateDirectionalLight(Light light, vec3 normal, vec3 viewDir)
     
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 2);
     vec3 specular = specularStrength * spec * light.color;
+
+    return ambient + diffuse + specular;
+}
+
+vec3 CalculatePointLight(Light light, vec3 normal, vec3 viewDir)
+{
+    vec3 lightDir = vPosition - light.position;
+    lightDir = normalize(-lightDir);
+
+    float constant = 1.0f;
+    float linear = 0.09f;
+    float quadratic = 0.032f;
+
+    float distance = length(light.position - vPosition);
+    float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
+
+    float ambientStrenght = 0.2;
+    vec3  ambient = ambientStrenght * light.color;
+
+    float diff = max(dot(normal, lightDir), 0.0f);
+    vec3 diffuse = diff * light.color;
+
+    float specularStrength = 0.1f;
+    vec3 reflectDir = reflect(-lightDir, vNormal);
+    
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 2);
+    vec3 specular = specularStrength * spec * light.color;
+
+    ambient *= attenuation;
+    diffuse *= attenuation;
+    specular *= attenuation;
 
     return ambient + diffuse + specular;
 }
