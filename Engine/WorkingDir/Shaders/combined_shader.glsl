@@ -75,52 +75,62 @@ layout(location = 1) out vec4 rt1; //Normals
 layout(location = 2) out vec4 rt2; //Position 
 layout(location = 3) out vec4 rt3; //Final Render 
 
+vec3 CalculateDirectionalLight(Light light, vec3 normal, vec3 viewDir);
+
 void main()
 {
-    vec4 oColor = texture(uTexture, vTexCoord);
-
-    rt0 = oColor;
+    rt0 = texture(uTexture, vTexCoord);
     rt1 = vec4(vNormal, 1.0);
     rt2 = vec4(vPosition, 1.0);
+    rt3 = vec4(vec3(0.0), 1.0);
 
     for(int i = 0; i < uLightCount; ++i)
     {
         vec3 lightDir = normalize(uLight[i].direction);
-        if(uLight[i].type == 1)
+        vec3 lightResult = vec3(0.0f);
+
+        if(uLight[i].type == 0)
         {
-            lightDir = vPosition - uLight[i].position;
-            lightDir = normalize(-lightDir);
+            lightResult = CalculateDirectionalLight(uLight[i], normalize(vNormal), vViewDir);
         }
-        float ambientStrenght = 0.2;
-        vec3  ambient = ambientStrenght * uLight[i].color;
+        else
+        {
+            /* lightDir = vPosition - uLight[i].position;
+            lightDir = normalize(-lightDir);
 
-        float diff = max(dot(vNormal, lightDir), 0.0f);
-        vec3 diffuse = diff * uLight[i].color;
+            float constant = 1.0f;
+            float linear = 0.09f;
+            float quadratic = 0.032f;
 
-        float specularStrength = 0.1f;
-        vec3 reflectDir = reflect(-lightDir, vNormal);
-      
-        float spec = pow(max(dot(vViewDir, reflectDir), 0.0f), 2);
-        vec3 specular = specularStrength * spec * uLight[i].color;
+            float distance = length(uLight[i].position - vPosition);
+            float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
 
-      if(uLight[i].type == 1)
-      {
-        float constant = 1.0f;
-        float linear = 0.09f;
-        float quadratic = 0.032f;
-
-        float distance = length(uLight[i].position - vPosition);
-        float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
-
-        ambient *= attenuation;
-        diffuse *= attenuation;
-        specular *= attenuation;
-      }
-    
-        oColor.rgb *= (ambient + diffuse + specular);    
+            ambient *= attenuation;
+            diffuse *= attenuation;
+            specular *= attenuation; */
+        }
+        
+        rt3.rgb += lightResult * rt0.rgb;    
     }
+}
 
-    rt3 = oColor;
+vec3 CalculateDirectionalLight(Light light, vec3 normal, vec3 viewDir)
+{
+    vec3 lightDir = normalize(light.direction);
+
+    float ambientStrenght = 0.2;
+    vec3  ambient = ambientStrenght * light.color;
+
+    float diff = max(dot(normal, lightDir), 0.0f);
+    vec3 diffuse = diff * light.color;
+
+    float specularStrength = 0.1f;
+    vec3 reflectDir = reflect(-lightDir, vNormal);
+    
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 2);
+    vec3 specular = specularStrength * spec * light.color;
+
+    return ambient + diffuse + specular;
 }
 
 #endif

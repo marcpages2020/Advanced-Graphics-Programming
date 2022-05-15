@@ -49,7 +49,6 @@
   <ItemGroup>
     <None Include="WorkingDir\Shaders\combined_shader.glsl" />
     <None Include="WorkingDir\Shaders\depth.glsl" />
-    <None Include="WorkingDir\Shaders\final_render.glsl" />
     <None Include="WorkingDir\Shaders\lights.glsl" />
     <None Include="WorkingDir\Shaders\textured_geometry.glsl" />
   </ItemGroup>

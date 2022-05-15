@@ -16,6 +16,15 @@
     <Filter Include="Stb">
       <UniqueIdentifier>{0ac2ff0f-5f18-480a-8bd6-6aa7428166bb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\Mesh">
+      <UniqueIdentifier>{45ee9dd1-6285-48ad-b7ae-ee63ac03cbbc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Lights">
+      <UniqueIdentifier>{393df33f-36c9-44c1-aed8-917a57ed8358}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Quad">
+      <UniqueIdentifier>{8bc12c5f-60c6-4ed1-a8e3-1816275df25d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp">
@@ -94,20 +103,17 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="WorkingDir\Shaders\depth.glsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="WorkingDir\Shaders\final_render.glsl">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="WorkingDir\Shaders\textured_geometry.glsl">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="WorkingDir\Shaders\combined_shader.glsl">
-      <Filter>Shaders</Filter>
+      <Filter>Shaders\Mesh</Filter>
     </None>
     <None Include="WorkingDir\Shaders\lights.glsl">
-      <Filter>Shaders</Filter>
+      <Filter>Shaders\Lights</Filter>
+    </None>
+    <None Include="WorkingDir\Shaders\depth.glsl">
+      <Filter>Shaders\Quad</Filter>
+    </None>
+    <None Include="WorkingDir\Shaders\textured_geometry.glsl">
+      <Filter>Shaders\Quad</Filter>
     </None>
   </ItemGroup>
 </Project>

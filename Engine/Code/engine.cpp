@@ -216,6 +216,14 @@ mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors)
 	return transform;
 }
 
+mat4 TransformPositionRotationScale(const vec3& pos, const vec3& rotation, const vec3& scaleFactors)
+{
+	mat4 transform = glm::translate(pos);
+	transform = glm::rotate(transform, glm::radians(90.0f), rotation);
+	transform = glm::scale(transform, scaleFactors);
+	return transform;
+}
+
 void Init(App* app)
 {
 	if (GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 3))
@@ -252,8 +260,9 @@ void Init(App* app)
 	app->entities.push_back(entity);
 
 	//Lights
-	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
-	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 1.0f)));
+	//app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
 	//app->lights.push_back(pointLight);
 
 	app->currentRenderMode = RenderMode::FINAL_RENDER;
@@ -403,9 +412,9 @@ void Update(App* app)
 
 	MapBuffer(app->cbuffer, GL_WRITE_ONLY);
 
+	//Global params
 	app->globalParamsOffset = app->cbuffer.head;
 
-	//Global params
 	PushVec3(app->cbuffer, app->camera.position);
 	PushUInt(app->cbuffer, app->lights.size());
 
@@ -422,13 +431,12 @@ void Update(App* app)
 
 	app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;
 
-	for (size_t i = 0; i < app->lights.size(); i++)
+	//Normal entities
+	for (size_t i = 0; i < app->entities.size(); ++i)
 	{
 		AlignHead(app->cbuffer, app->uniformBufferAlignment);
 
-		Light& light = app->lights[i];
-		Entity& entity = light.entity;
-		entity.position = light.position;
+		Entity& entity = app->entities[i];
 		mat4 world = entity.worldMatrix;
 		world = TransformPositionScale(entity.position, vec3(0.45f));
 		mat4 worldViewProjection = projection * view * world;
@@ -439,13 +447,17 @@ void Update(App* app)
 		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
 	}
 
-	for (size_t i = 0; i < app->entities.size(); ++i)
+	//Light entities
+	for (size_t i = 0; i < app->lights.size(); i++)
 	{
 		AlignHead(app->cbuffer, app->uniformBufferAlignment);
 
-		Entity& entity = app->entities[i];
+		Light& light = app->lights[i];
+		Entity& entity = light.entity;
+		entity.position = light.position;
+
 		mat4 world = entity.worldMatrix;
-		world = TransformPositionScale(entity.position, vec3(0.45f));
+		world = TransformPositionRotationScale(light.position, light.direction, vec3(0.45f));
 		mat4 worldViewProjection = projection * view * world;
 
 		entity.localParamsOffset = app->cbuffer.head;
