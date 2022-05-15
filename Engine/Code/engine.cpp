@@ -1160,3 +1160,31 @@ Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, 
 
 	return light;
 }
+
+Camera::Camera()
+{}
+
+Camera::Camera(vec3 _position, vec3 _front, vec3 _worldUp)
+{
+	position = _position;
+	front = _front;
+	worldUp = _worldUp;
+}
+
+mat4 Camera::GetViewMatrix()
+{
+	return glm::lookAt(position, position + front, up);
+}
+
+void Camera::UpdateCameraVectors()
+{
+	// calculate the new Front vector
+	glm::vec3 front;
+	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	front.y = sin(glm::radians(pitch));
+	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+	front = glm::normalize(front);
+	// also re-calculate the Right and Up vector
+	right = glm::normalize(glm::cross(front, worldUp));  // normalize the vectors, because their length gets closer to 0 the more you look up or down which results in slower movement.
+	up = glm::normalize(glm::cross(right, front));
+}

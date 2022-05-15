@@ -6,7 +6,6 @@
 
 #include "platform.h"
 #include <glad/glad.h>
-#include <map>
 
 #define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
 #define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
@@ -31,6 +30,50 @@ typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
 typedef glm::mat4  mat4;
+
+enum Camera_Movement {
+	CAMERA_FORWARD,
+	CAMERA_BACKWARD,
+	CAMERA_LEFT,
+	CAMERA_RIGHT
+};
+
+// Default camera values
+const float YAW = -90.0f;
+const float PITCH = 0.0f;
+const float SPEED = 2.5f;
+const float SENSITIVITY = 0.1f;
+const float ZOOM = 45.0f;
+
+class Camera
+{
+public:
+	Camera();
+	Camera(vec3 _position, vec3 _front, vec3 _worldUp = vec3(0.0f, 1.0f, 0.0f));
+
+	vec3 position;
+	vec3 front;
+	vec3 up;
+	vec3 right;
+	vec3 worldUp;
+
+	float yaw;
+	float pitch;
+
+	float movementSpeed = 0.5f;
+	float mouseSensitivity = 0.5f;
+	float zoom = 0.5f;
+
+	vec3 target;
+
+	mat4 GetViewMatrix();
+	void ProcessKeyboard(vec3 direction, float deltaTime);
+	void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
+	void ProcessMouseScroll(float yoffset);
+
+private:
+	void UpdateCameraVectors();
+};
 
 struct VertexV3V2
 {
@@ -173,11 +216,7 @@ enum Mode
 	Mode_Count
 };
 
-struct Camera
-{
-	vec3 position;
-	vec3 target;
-};
+
 
 enum class LightType
 {
