@@ -116,7 +116,8 @@ vec3 CalculateDirectionalLight(Light light, vec3 normal, vec3 viewDir)
     float specularStrength = 0.1f;
     vec3 reflectDir = reflect(-lightDir, vNormal);
     
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 2);
+    viewDir = normalize(viewDir);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32);
     vec3 specular = specularStrength * spec * light.color;
 
     return ambient + diffuse + specular;

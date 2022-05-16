@@ -231,7 +231,10 @@ void Init(App* app)
 		glDebugMessageCallback(OnGlError, app);
 	}
 
-	app->camera = Camera(vec3(0.0f, 0.0f, 5.0f));
+	app->camera = Camera(vec3(3.25f, 3.5f, 3.125f));
+	app->camera.yaw = -135.0f;
+	app->camera.pitch = -24.0f;
+	app->camera.UpdateCameraVectors();
 
 	GLint maxUniformBufferSize;
 
@@ -254,17 +257,20 @@ void Init(App* app)
 	//Entitiy
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
-	app->model = LoadModel(app, "Patrick/Patrick.obj");
+	//app->model = LoadModel(app, "Patrick/Patrick.obj");
+	app->model = LoadModel(app, "Room/Room #1.obj");
 	entity.modelIndex = app->model;
 	app->entities.push_back(entity);
 
 	//Lights
 	//Directional
-	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 1.0f), vec3(1.0f, 0.0f, 0.0f)));
-	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 1.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(2.5f, 3.0f, 0.0f), vec3(0.2f, 0.250f, 0.8f), vec3(0.9f, 0.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(-2.9f, 2.75f, -2.0f), vec3(1.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 0.9f)));
 	
 	//Point
-	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.0f, 1.0f, 1.0f), vec3(1.0f), vec3(0.0f, 1.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(-1.0f, 2.75, 2.2f), vec3(1.0f), vec3(0.0f, 1.0f, 0.0f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(1.0f, 2.75, 2.2f), vec3(1.0f), vec3(0.5f, 0.2f, 0.5f)));
+	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.1f, 1.55, -0.2f), vec3(1.0f), vec3(0.33f, 0.2f, 0.05f)));
 	//app->lights.push_back(pointLight);
 
 	app->currentRenderMode = RenderMode::FINAL_RENDER;
@@ -407,9 +413,12 @@ void Gui(App* app)
 			ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
 			light.position = vec3(position[0], position[1], position[2]);
 
-			float direction[3] = { light.direction.x, light.direction.y, light.direction.z };
-			ImGui::DragFloat3("Direction", direction, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
-			light.direction = vec3(direction[0], direction[1], direction[2]);
+			if (light.type == LightType::LightType_Directional)
+			{
+				float direction[3] = { light.direction.x, light.direction.y, light.direction.z };
+				ImGui::DragFloat3("Direction", direction, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
+				light.direction = vec3(direction[0], direction[1], direction[2]);
+			}
 
 			float color[3] = { light.color.r, light.color.g, light.color.b };
 			ImGui::ColorPicker3("Color", color);
@@ -421,6 +430,18 @@ void Gui(App* app)
 			ImGui::Dummy(ImVec2(0.0f, 15.0f));
 		}
 		ImGui::TreePop();
+	}
+
+	ImGui::Dummy(ImVec2(0.0f, 7.5f));
+
+	if (ImGui::Button("Create Directional Light"))
+	{
+		app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f)));
+	}
+
+	if (ImGui::Button("Create Point Light"))
+	{
+		app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.0f, 1.5f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f)));
 	}
 
 	ImGui::End();
@@ -499,7 +520,7 @@ void Update(App* app)
 		entity.position = light.position;
 
 		mat4 world = entity.worldMatrix;
-		world = TransformPositionRotationScale(light.position, light.direction, vec3(0.45f));
+		world = TransformPositionRotationScale(light.position, light.direction, light.type == LightType::LightType_Directional ? vec3(0.45f) : vec3(0.25f));
 		mat4 worldViewProjection = projection * view * world;
 
 		entity.localParamsOffset = app->cbuffer.head;
@@ -720,10 +741,10 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
 
 void OnScreenResize(App* app)
 {
-	GenerateColorTexture(app->albedoAttachmentHandle, app->displaySize);
-	GenerateColorTexture(app->normalsAttachmentHandle, app->displaySize);
-	GenerateColorTexture(app->positionAttachmentHandle, app->displaySize);
-	GenerateColorTexture(app->finalRenderAttachmentHandle, app->displaySize);
+	GenerateColorTexture(app->albedoAttachmentHandle, app->displaySize, GL_RGBA8);
+	GenerateColorTexture(app->normalsAttachmentHandle, app->displaySize, GL_RGBA16F);
+	GenerateColorTexture(app->positionAttachmentHandle, app->displaySize, GL_RGBA16F);
+	GenerateColorTexture(app->finalRenderAttachmentHandle, app->displaySize, GL_RGBA16F);
 
 	glGenTextures(1, &app->depthAttachmentHandle);
 	glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
@@ -1089,11 +1110,11 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment)
 	buffer.head += size;
 }
 
-void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize)
+void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize, GLint internalFormat)
 {
 	glGenTextures(1, &colorAttachmentHandle);
 	glBindTexture(GL_TEXTURE_2D, colorAttachmentHandle);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, displaySize.x, displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, displaySize.x, displaySize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);

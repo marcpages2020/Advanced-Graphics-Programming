@@ -69,7 +69,6 @@ public:
 	void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
 	void ProcessMouseScroll(float yoffset);
 
-private:
 	void UpdateCameraVectors();
 };
 
@@ -356,7 +355,7 @@ void MapBuffer(Buffer& buffer, GLenum access);
 void UnmapBuffer(Buffer& buffer);
 void AlignHead(Buffer& buffer, u32 alignment);
 void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
-void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize);
+void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize, GLint internalFormat);
 
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
