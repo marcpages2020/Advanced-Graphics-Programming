@@ -54,7 +54,7 @@ public:
 	Camera(glm::vec3 position, vec3 forward = vec3(0.0f, 0.0f, 1.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f));
 
 	vec3 position;
-	//vec3 rotation;
+	vec2 rotation;
 	
 	vec3 forward;
 	vec3 up;

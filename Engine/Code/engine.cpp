@@ -469,6 +469,8 @@ void Update(App* app)
 
 	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
 	mat4 view = app->camera.GetViewMatrix();
+	view = glm::rotate<float>(view, app->camera.rotation.x, glm::vec3(0, 1, 0));
+	view = glm::rotate<float>(view, app->camera.rotation.y, glm::vec3(1, 0, 0));
 
 	MapBuffer(app->cbuffer, GL_WRITE_ONLY);
 
@@ -1214,6 +1216,7 @@ Camera::Camera()
 	movementSpeed = SPEED;
 	mouseSensitivity = SENSITIVITY;
 	zoom = ZOOM;
+	rotation = vec2(0.0f);
 }
 
 Camera::Camera(glm::vec3 _position, vec3 _forward, glm::vec3 _up) : forward(glm::vec3(0.0f, 0.0f, -1.0f)), movementSpeed(SPEED), mouseSensitivity(SENSITIVITY), zoom(ZOOM)
@@ -1224,12 +1227,12 @@ Camera::Camera(glm::vec3 _position, vec3 _forward, glm::vec3 _up) : forward(glm:
 	right = glm::normalize(glm::cross(up, forward));
 	target = position + _forward;
 	worldUp = _up;
-	//rotation = vec3(0.0f);
+	rotation = vec2(0.0f);
 }
 
 mat4 Camera::GetViewMatrix()
 {
-	return glm::lookAt(position, target, up);
+	return glm::lookAt(position, target, { 0,1,0 });
 }
 
 void Camera::ProcessKeyboard(Camera_Movement direction,  float deltaTime)
@@ -1262,15 +1265,18 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset, float deltaTime,
 	xoffset *= mouseSensitivity * deltaTime;
 	yoffset *= mouseSensitivity * deltaTime;
 
-	position += right * xoffset * mouseSensitivity;
-	position -= up * yoffset * mouseSensitivity;
+	rotation.x += xoffset;
+	rotation.y += yoffset;
 
-	glm::mat4x4 view = GetViewMatrix();
+	/*position += right * xoffset * mouseSensitivity;
+	position -= up * yoffset * mouseSensitivity;*/
+
+	/*glm::mat4x4 view = GetViewMatrix();
 
 	vec3 _forward = glm::normalize(glm::inverse(view)[2]);
 	forward = glm::normalize(target - position);
 	right = glm::normalize(glm::cross(forward, worldUp));
-	up = glm::normalize(glm::cross(forward, right));
+	up = glm::normalize(glm::cross(forward, right));*/
 }
 
 void Camera::Orbit(float xoffset, float yoffset, float deltaTime)
