@@ -30,10 +30,8 @@ typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
 typedef glm::mat4  mat4;
-typedef glm::mat3x3 mat3x3;
-typedef glm::quat  quat;
 
-enum class Camera_Movement {
+enum Camera_Movement {
 	CAMERA_FORWARD,
 	CAMERA_BACKWARD,
 	CAMERA_LEFT,
@@ -51,28 +49,27 @@ class Camera
 {
 public:
 	Camera();
-	Camera(glm::vec3 position, vec3 forward = vec3(0.0f, 0.0f, 1.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f));
+	Camera(glm::vec3 position, glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH);
 
 	vec3 position;
-	//vec3 rotation;
-	
-	vec3 forward;
+	vec3 front;
 	vec3 up;
 	vec3 right;
 	vec3 worldUp;
 
-	vec3 target;
+	float yaw = -90.0f;
+	float pitch = 0.0f;
 
 	float movementSpeed = 0.5f;
 	float mouseSensitivity = 0.5f;
 	float zoom = 0.5f;
-	float orbitSpeed = 0.5f;
 
 	mat4 GetViewMatrix();
 	void ProcessKeyboard(Camera_Movement direction, float deltaTime);
-	void ProcessMouseMovement(float xoffset, float yoffset, float deltaTime, GLboolean constrainPitch = true);
+	void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
+	void ProcessMouseScroll(float yoffset);
 
-	void Orbit(float xoffset, float yoffset, float deltaTime);
+	void UpdateCameraVectors();
 };
 
 struct VertexV3V2
