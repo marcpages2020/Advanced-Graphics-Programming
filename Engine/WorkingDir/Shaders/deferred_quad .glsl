@@ -103,7 +103,7 @@ void main()
                 }
                 else
                 {
-                    lightResult = CalculatePointLight(uLight[i], vPosition,normalize(vNormal), viewDir);
+                    lightResult = CalculatePointLight(uLight[i], vPosition, normalize(vNormal), viewDir);
                 }
                 
                 oColor.rgb += lightResult * vColor.rgb;    

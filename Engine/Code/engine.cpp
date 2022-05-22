@@ -651,14 +651,12 @@ void DeferredRender(App* app)
 	Program& lightsProgram = app->programs[app->lightsProgramIdx];
 	glUseProgram(lightsProgram.handle);
 
-	if (app->currentRenderTargetMode == RenderTargetsMode::FINAL_RENDER)
+	for (size_t i = 0; i < app->lights.size(); i++)
 	{
-		for (size_t i = 0; i < app->lights.size(); i++)
-		{
-			Light& light = app->lights[i];
-			RenderLight(app, light, lightsProgram);
-		}
+		Light& light = app->lights[i];
+		RenderLight(app, light, lightsProgram);
 	}
+
 	glPopDebugGroup();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1275,7 +1273,7 @@ void DrawQuad(App* app)
 		Program& deferredQuadProgram = app->programs[app->deferredQuadProgramIdx];
 
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); 
+		glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle);
 		GLuint colorTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uColor");
 		glUniform1i(colorTextureLocation, 0);
 
