@@ -257,8 +257,8 @@ void Init(App* app)
 	//Entitiy
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
-	//app->model = LoadModel(app, "Patrick/Patrick.obj");
-	app->model = LoadModel(app, "Room/Room #1.obj");
+	app->model = LoadModel(app, "Patrick/Patrick.obj");
+	//app->model = LoadModel(app, "Room/Room #1.obj");
 	entity.modelIndex = app->model;
 	app->entities.push_back(entity);
 
@@ -266,32 +266,41 @@ void Init(App* app)
 	//Directional
 	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(2.5f, 3.0f, 0.0f), vec3(0.2f, 0.250f, 0.8f), vec3(0.9f, 0.0f, 0.0f)));
 	app->lights.push_back(CreateLight(app, LightType::LightType_Directional, vec3(-2.9f, 2.75f, -2.0f), vec3(1.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 0.9f)));
-	
+
 	//Point
 	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(-1.0f, 2.75, 2.2f), vec3(1.0f), vec3(0.0f, 1.0f, 0.0f)));
 	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(1.0f, 2.75, 2.2f), vec3(1.0f), vec3(0.5f, 0.2f, 0.5f)));
 	app->lights.push_back(CreateLight(app, LightType::LightType_Point, vec3(0.1f, 1.55, -0.2f), vec3(1.0f), vec3(0.33f, 0.2f, 0.05f)));
 	//app->lights.push_back(pointLight);
 
-	app->currentRenderMode = RenderMode::FINAL_RENDER;
+	// ====================================================================================================================================================
 
-	//QUAD
-	app->texturedGeometryProgramIdx = LoadProgram(app, "shaders/textured_geometry.glsl", "TEXTURED_GEOMETRY");
-	Program& texturedGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-	app->programUniformTexture = glGetUniformLocation(texturedGeometryProgram.handle, "uTexture");
+	//Rendering
+	app->currentRenderMode = RenderMode::FORWARD;
+	app->currentRenderTargetMode = RenderTargetsMode::FINAL_RENDER;
 
-	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
-	Program& depthProgram = app->programs[app->depthProgramIdx];
-	LoadProgramAttributes(depthProgram);
+	app->forwardGeometryProgramIdx = LoadProgram(app, "shaders/forward_geometry.glsl", "FORWARD_GEOMETRY");
+	Program& forwardGeometryProgram = app->programs[app->forwardGeometryProgramIdx];
+	LoadProgramAttributes(forwardGeometryProgram);
 
-	//MESH
-	app->texturedMeshProgramIdx = LoadProgram(app, "shaders/combined_shader.glsl", "SHOW_COMBINED");
-	Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-	LoadProgramAttributes(texturedMeshProgram);
+	//Geometry
+	app->deferredGeometryProgramIdx = LoadProgram(app, "shaders/deferred_geometry.glsl", "DEFERRED_GEOMETRY");
+	Program& deferredGeometryProgram = app->programs[app->deferredGeometryProgramIdx];
+	LoadProgramAttributes(deferredGeometryProgram);
 
 	app->lightsProgramIdx = LoadProgram(app, "shaders/lights.glsl", "SHOW_LIGHTS");
 	Program& lightsProgram = app->programs[app->lightsProgramIdx];
 	LoadProgramAttributes(lightsProgram);
+
+	//Quad
+	app->forwardQuadProgramIdx = LoadProgram(app, "shaders/forward_quad.glsl", "FORWARD_QUAD");
+	Program& forwardQuadProgram = app->programs[app->forwardQuadProgramIdx];
+	LoadProgramAttributes(forwardQuadProgram);
+	app->programUniformTexture = glGetUniformLocation(forwardQuadProgram.handle, "uTexture");
+
+	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
+	Program& depthProgram = app->programs[app->depthProgramIdx];
+	LoadProgramAttributes(depthProgram);
 
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
@@ -330,7 +339,7 @@ void Gui(App* app)
 	ImGui::Begin("Editor");
 
 	ImGui::Dummy(ImVec2(0.0f, 5.0f));
-	
+
 	ImGui::Text("Camera");
 
 	float cameraPosition[3] = { app->camera.position.x, app->camera.position.y, app->camera.position.z };
@@ -345,15 +354,30 @@ void Gui(App* app)
 	ImGui::Separator();
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
 
-	const char* buffers[] = { "ALBEDO", "NORMALS", "POSITION", "FINAL RENDER", "DEPTH" };
-	if (ImGui::BeginCombo("Buffers", buffers[(u32)app->currentRenderMode]))
+	const char* renderModeBuffers[] = { "FORWARD", "DEFERRED" };
+	if (ImGui::BeginCombo("Render Mode", renderModeBuffers[(u32)app->currentRenderMode]))
 	{
-		for (size_t i = 0; i < IM_ARRAYSIZE(buffers); ++i)
+		for (size_t i = 0; i < IM_ARRAYSIZE(renderModeBuffers); ++i)
 		{
 			bool isSelected = (i == (u32)app->currentRenderMode);
-			if (ImGui::Selectable(buffers[i], isSelected))
+			if (ImGui::Selectable(renderModeBuffers[i], isSelected))
 			{
 				app->currentRenderMode = (RenderMode)i;
+			}
+		}
+
+		ImGui::EndCombo();
+	}
+
+	const char* renderTargetBuffers[] = { "ALBEDO", "NORMALS", "POSITION", "DEPTH", "FINAL RENDER" };
+	if (ImGui::BeginCombo("Render Targets", renderTargetBuffers[(u32)app->currentRenderTargetMode]))
+	{
+		for (size_t i = 0; i < IM_ARRAYSIZE(renderTargetBuffers); ++i)
+		{
+			bool isSelected = (i == (u32)app->currentRenderTargetMode);
+			if (ImGui::Selectable(renderTargetBuffers[i], isSelected))
+			{
+				app->currentRenderTargetMode = (RenderTargetsMode)i;
 			}
 		}
 
@@ -363,7 +387,7 @@ void Gui(App* app)
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
 	ImGui::Separator();
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
-	
+
 	if (ImGui::TreeNode("Entities"))
 	{
 		for (size_t i = 0; i < app->entities.size(); ++i)
@@ -549,9 +573,25 @@ void Render(App* app)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Shaded model");
+	//FORWARD SHADING =======================================================================================
+	if (app->currentRenderMode == RenderMode::FORWARD)
+	{
+		ForwardRender(app);
+	}
 
-	Program& modelProgram = app->programs[app->texturedMeshProgramIdx];
+	//DEFERRED SHADING ======================================================================================
+	else
+	{
+		DeferredRender(app);
+	}
+
+}
+
+void ForwardRender(App* app)
+{
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward shaded model");
+
+	Program& modelProgram = app->programs[app->forwardGeometryProgramIdx];
 	glUseProgram(modelProgram.handle);
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
@@ -562,12 +602,12 @@ void Render(App* app)
 
 	glPopDebugGroup();
 
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Lights");
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward lights");
 
 	Program& lightsProgram = app->programs[app->lightsProgramIdx];
 	glUseProgram(lightsProgram.handle);
 
-	if (app->currentRenderMode == RenderMode::FINAL_RENDER)
+	if (app->currentRenderTargetMode == RenderTargetsMode::FINAL_RENDER)
 	{
 		for (size_t i = 0; i < app->lights.size(); i++)
 		{
@@ -579,7 +619,46 @@ void Render(App* app)
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Textured quad");
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Textured quad");
+
+	DrawQuad(app);
+
+	glPopDebugGroup();
+}
+
+void DeferredRender(App* app)
+{
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Shaded model");
+
+	Program& modelProgram = app->programs[app->deferredGeometryProgramIdx];
+	glUseProgram(modelProgram.handle);
+
+	for (size_t i = 0; i < app->entities.size(); ++i)
+	{
+		Entity& entity = app->entities[i];
+		RenderModel(app, entity, modelProgram);
+	}
+
+	glPopDebugGroup();
+
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Lights");
+
+	Program& lightsProgram = app->programs[app->lightsProgramIdx];
+	glUseProgram(lightsProgram.handle);
+
+	if (app->currentRenderTargetMode == RenderTargetsMode::FINAL_RENDER)
+	{
+		for (size_t i = 0; i < app->lights.size(); i++)
+		{
+			Light& light = app->lights[i];
+			RenderLight(app, light, lightsProgram);
+		}
+	}
+	glPopDebugGroup();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Textured quad");
 
 	DrawQuad(app);
 
@@ -791,7 +870,7 @@ void OnScreenResize(App* app)
 void HandleInput(App* app)
 {
 	if (app->input.keys[K_W] == BUTTON_PRESSED) {
-		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_FORWARD, app->deltaTime); 
+		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_FORWARD, app->deltaTime);
 	}
 	if (app->input.keys[K_A] == BUTTON_PRESSED) {
 		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_LEFT, app->deltaTime);
@@ -803,7 +882,7 @@ void HandleInput(App* app)
 		app->camera.ProcessKeyboard(Camera_Movement::CAMERA_RIGHT, app->deltaTime);
 	}
 
-	if (app->input.mouseButtons[LEFT] == BUTTON_PRESSED ||  app->input.mouseButtons[RIGHT] == BUTTON_PRESSED)
+	if (app->input.mouseButtons[LEFT] == BUTTON_PRESSED || app->input.mouseButtons[RIGHT] == BUTTON_PRESSED)
 	{
 		app->camera.ProcessMouseMovement(app->input.mouseDelta.x, -app->input.mouseDelta.y);
 	}
@@ -1157,9 +1236,11 @@ void DrawQuad(App* app)
 
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
 
-	Program& quadProgram = app->programs[app->texturedGeometryProgramIdx];
+	Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
 
-	if (app->currentRenderMode == RenderMode::DEPTH) { quadProgram = app->programs[app->depthProgramIdx]; }
+	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH) {
+		quadProgram = app->programs[app->depthProgramIdx];
+	}
 
 	glUseProgram(quadProgram.handle);
 	glBindVertexArray(app->quad.vao);
@@ -1172,14 +1253,14 @@ void DrawQuad(App* app)
 	GLuint textureHandle = app->framebufferHandle;
 
 
-	switch (app->currentRenderMode)
+	switch (app->currentRenderTargetMode)
 	{
-	case RenderMode::ALBEDO: glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
-	case RenderMode::NORMALS: glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle); break;
-	case RenderMode::POSITION: glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle); break;
-	case RenderMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
-	case RenderMode::DEPTH: glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle); break;
-	default: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
+	case RenderTargetsMode::ALBEDO: glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
+	case RenderTargetsMode::NORMALS: glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle); break;
+	case RenderTargetsMode::POSITION: glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle); break;
+	case RenderTargetsMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
+	case RenderTargetsMode::DEPTH: glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle); break;
+	default: glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
@@ -1232,7 +1313,7 @@ mat4 Camera::GetViewMatrix()
 	return glm::lookAt(position, position + front, up);
 }
 
-void Camera::ProcessKeyboard(Camera_Movement direction,  float deltaTime)
+void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
 {
 	float velocity = movementSpeed * deltaTime;
 	if (direction == CAMERA_FORWARD)

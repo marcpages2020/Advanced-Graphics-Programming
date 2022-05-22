@@ -200,11 +200,17 @@ struct Program
 
 enum class RenderMode
 {
+	FORWARD,
+	DEFERRED
+};
+
+enum class RenderTargetsMode
+{
 	ALBEDO,
 	NORMALS,
 	POSITION,
+	DEPTH,
 	FINAL_RENDER,
-	DEPTH
 };
 
 enum Mode
@@ -259,8 +265,11 @@ struct App
 
 	// program indices
 	//Quad
-	u32 texturedGeometryProgramIdx;
-	u32 texturedMeshProgramIdx;
+	u32 forwardQuadProgramIdx;
+	u32 deferredQuadProgramIdx;
+
+	u32 forwardGeometryProgramIdx;
+	u32 deferredGeometryProgramIdx;
 	u32 depthProgramIdx;
 	u32 lightsProgramIdx;
 
@@ -300,6 +309,7 @@ struct App
 	//std::vector<GLuint> colorAttachmentHandles;
 
 	RenderMode currentRenderMode;
+	RenderTargetsMode currentRenderTargetMode;
 
 	GLuint currentAttachmentHandle;
 	GLuint albedoAttachmentHandle;
@@ -330,6 +340,8 @@ void Gui(App* app);
 void Update(App* app);
 
 void Render(App* app);
+void ForwardRender(App* app);
+void DeferredRender(App* app);
 
 void RenderModel(App* app, Entity entity, Program program);
 void RenderLight(App* app, Light light, Program program);
