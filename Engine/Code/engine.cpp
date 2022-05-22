@@ -276,7 +276,7 @@ void Init(App* app)
 	// ====================================================================================================================================================
 
 	//Rendering
-	app->currentRenderMode = RenderMode::FORWARD;
+	app->currentRenderMode = RenderMode::DEFERRED;
 	app->currentRenderTargetMode = RenderTargetsMode::FINAL_RENDER;
 
 	app->forwardGeometryProgramIdx = LoadProgram(app, "shaders/forward_geometry.glsl", "FORWARD_GEOMETRY");
@@ -297,6 +297,11 @@ void Init(App* app)
 	Program& forwardQuadProgram = app->programs[app->forwardQuadProgramIdx];
 	LoadProgramAttributes(forwardQuadProgram);
 	app->programUniformTexture = glGetUniformLocation(forwardQuadProgram.handle, "uTexture");
+
+	app->deferredQuadProgramIdx = LoadProgram(app, "shaders/deferred_quad .glsl", "DEFERRED_QUAD");
+	Program& deferredQuadProgram = app->programs[app->deferredQuadProgramIdx];
+	LoadProgramAttributes(deferredQuadProgram);
+	app->programUniformTexture = glGetUniformLocation(deferredQuadProgram.handle, "uTexture");
 
 	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
 	Program& depthProgram = app->programs[app->depthProgramIdx];
@@ -502,6 +507,7 @@ void Update(App* app)
 	//Global params
 	app->globalParamsOffset = app->cbuffer.head;
 
+	PushUInt(app->cbuffer, (u32)app->currentRenderTargetMode);
 	PushVec3(app->cbuffer, app->camera.position);
 	PushUInt(app->cbuffer, app->lights.size());
 
@@ -584,7 +590,6 @@ void Render(App* app)
 	{
 		DeferredRender(app);
 	}
-
 }
 
 void ForwardRender(App* app)
@@ -1248,19 +1253,46 @@ void DrawQuad(App* app)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glUniform1i(app->programUniformTexture, 0);
-	glActiveTexture(GL_TEXTURE0);
-	GLuint textureHandle = app->framebufferHandle;
-
-
-	switch (app->currentRenderTargetMode)
+	//FORWARD
+	if (app->currentRenderMode == RenderMode::FORWARD)
 	{
-	case RenderTargetsMode::ALBEDO: glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
-	case RenderTargetsMode::NORMALS: glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle); break;
-	case RenderTargetsMode::POSITION: glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle); break;
-	case RenderTargetsMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
-	case RenderTargetsMode::DEPTH: glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle); break;
-	default: glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
+		glUniform1i(app->programUniformTexture, 0);
+		glActiveTexture(GL_TEXTURE0);
+
+		switch (app->currentRenderTargetMode)
+		{
+		case RenderTargetsMode::ALBEDO:		  glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
+		case RenderTargetsMode::NORMALS:	  glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle); break;
+		case RenderTargetsMode::POSITION:	  glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle); break;
+		case RenderTargetsMode::DEPTH:        glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle); break;
+		case RenderTargetsMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
+		default:							  glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
+		}
+	}
+	//DEFERRED
+	else
+	{
+		Program& deferredQuadProgram = app->programs[app->deferredQuadProgramIdx];
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); 
+		GLuint colorTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uColor");
+		glUniform1i(colorTextureLocation, 0);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle);
+		GLuint normalsTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uNormals");
+		glUniform1i(normalsTextureLocation, 1);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle);
+		GLuint positionTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uPosition");
+		glUniform1i(positionTextureLocation, 2);
+
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
+		GLuint depthTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uDepth");
+		glUniform1i(depthTextureLocation, 3);
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);

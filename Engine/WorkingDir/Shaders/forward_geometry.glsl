@@ -19,6 +19,7 @@ layout(location=2) in vec2 aTexCoord;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
+    unsigned int uRenderMode;
     vec3         uCameraPosition;
     unsigned int uLightCount;
     Light        uLight[16];
@@ -50,7 +51,7 @@ void main()
 
 struct Light
 {
-    unsigned int type; //0: Directional, 1 Point
+    unsigned int type;
     vec3 color;
     vec3 direction;
     vec3 position;
@@ -65,6 +66,7 @@ uniform sampler2D uTexture;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
+    unsigned int uRenderMode;
     vec3 uCameraPosition;
     unsigned int uLightCount;
     Light uLight[16];

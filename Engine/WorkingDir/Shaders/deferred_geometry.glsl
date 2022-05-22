@@ -19,6 +19,7 @@ layout(location=2) in vec2 aTexCoord;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
+    unsigned int uRenderMode;
     vec3         uCameraPosition;
     unsigned int uLightCount;
     Light        uLight[16];
@@ -65,6 +66,7 @@ uniform sampler2D uTexture;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
+    unsigned int uRenderMode;
     vec3 uCameraPosition;
     unsigned int uLightCount;
     Light uLight[16];
