@@ -65,11 +65,16 @@ layout(binding = 0, std140) uniform GlobalParams
 
 layout(location = 0) out vec4 oColor;
 
+vec3 CalculateDirectionalLight(Light light, vec3 position, vec3 normal, vec3 viewDir);
+vec3 CalculatePointLight(Light light, vec3 position, vec3 normal, vec3 viewDir);
+
 void main()
 {
     vec3 vColor    = vec3(texture(uColor, vTexCoord));
     vec3 vNormal   = vec3(texture(uNormals, vTexCoord));
     vec3 vPosition = vec3(texture(uPosition, vTexCoord));
+
+    oColor = vec4(vec3(0.0f), 1.0f);
 
     switch(uRenderMode)
     {
@@ -86,12 +91,79 @@ void main()
             oColor = vec4(vec3(texture(uDepth, vTexCoord).r),1.0);
             break;
         case 4:
-           oColor = vec4(vColor, 1.0f);
+           for(int i = 0; i < uLightCount; ++i)
+           {
+                vec3 lightDir = normalize(uLight[i].direction);
+                vec3 lightResult = vec3(0.0f);
+                vec3 viewDir = normalize(uCameraPosition - vPosition);
+
+                if(uLight[i].type == 0)
+                {
+                    lightResult = CalculateDirectionalLight(uLight[i], vPosition, normalize(vNormal), viewDir);
+                }
+                else
+                {
+                    lightResult = CalculatePointLight(uLight[i], vPosition,normalize(vNormal), viewDir);
+                }
+                
+                oColor.rgb += lightResult * vColor.rgb;    
+           }
             break;
         default:
             oColor = vec4(vColor, 1.0f);
             break;
     }
+}
+
+vec3 CalculateDirectionalLight(Light light, vec3 position, vec3 normal, vec3 viewDir)
+{
+    vec3 lightDir = normalize(light.direction);
+
+    float ambientStrenght = 0.2;
+    vec3  ambient = ambientStrenght * light.color;
+
+    float diff = max(dot(normal, lightDir), 0.0f);
+    vec3 diffuse = diff * light.color;
+
+    float specularStrength = 0.1f;
+    vec3 reflectDir = reflect(-lightDir, normal);
+    
+    viewDir = normalize(viewDir);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32);
+    vec3 specular = specularStrength * spec * light.color;
+
+    return ambient + diffuse + specular;
+}
+
+vec3 CalculatePointLight(Light light, vec3 position, vec3 normal, vec3 viewDir)
+{
+    vec3 lightDir = position - light.position;
+    lightDir = normalize(-lightDir);
+
+    float constant = 1.0f;
+    float linear = 0.09f;
+    float quadratic = 0.032f;
+
+    float distance = length(light.position - position);
+    float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
+
+    float ambientStrenght = 0.2;
+    vec3  ambient = ambientStrenght * light.color;
+
+    float diff = max(dot(normal, lightDir), 0.0f);
+    vec3 diffuse = diff * light.color;
+
+    float specularStrength = 0.1f;
+    vec3 reflectDir = reflect(-lightDir, normal);
+    
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 2);
+    vec3 specular = specularStrength * spec * light.color;
+
+    ambient *= attenuation;
+    diffuse *= attenuation;
+    specular *= attenuation;
+
+    return ambient + diffuse + specular;
 }
 
 #endif

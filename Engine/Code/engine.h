@@ -219,8 +219,6 @@ enum Mode
 	Mode_Count
 };
 
-
-
 enum class LightType
 {
 	LightType_Directional,
