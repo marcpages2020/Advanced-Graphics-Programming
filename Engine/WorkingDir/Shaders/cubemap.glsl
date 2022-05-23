@@ -1,0 +1,33 @@
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+#ifdef CUBEMAP
+
+#if defined(VERTEX) ///////////////////////////////////////////////////
+
+layout(location = 0) in vec3 aPosition;
+layout(location = 1) in vec3 aTexCoord;
+
+out vec3 vTexCoord;
+
+void main()
+{
+    vTexCoord = aTexCoord;
+    gl_Position = vec4(aPosition, 1.0f).xyww;
+}
+
+#elif defined(FRAGMENT) ///////////////////////////////////////////////
+
+in vec3 vTexCoord;
+
+uniform samplerCube uTexture;
+
+layout(location = 0) out vec4 oColor;
+
+void main()
+{
+    oColor = texture(uTexture, vTexCoord);
+}
+
+#endif
+#endif

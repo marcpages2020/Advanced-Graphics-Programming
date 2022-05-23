@@ -177,6 +177,18 @@ GLuint CreateTexture2DFromImage(Image image)
 	return texHandle;
 }
 
+void CreateCubemap(const char* filepath, int i)
+{
+	Image image = LoadImage(filepath);
+
+	if (image.pixels)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, image.size.x, image.size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, image.pixels);
+
+		FreeImage(image);
+	}
+}
+
 u32 LoadTexture2D(App* app, const char* filepath)
 {
 	for (u32 texIdx = 0; texIdx < app->textures.size(); ++texIdx)
@@ -190,6 +202,7 @@ u32 LoadTexture2D(App* app, const char* filepath)
 		Texture tex = {};
 		tex.handle = CreateTexture2DFromImage(image);
 		tex.filepath = filepath;
+		tex.size = image.size;
 
 		u32 texIdx = app->textures.size();
 		app->textures.push_back(tex);
@@ -230,6 +243,8 @@ void Init(App* app)
 	{
 		glDebugMessageCallback(OnGlError, app);
 	}
+
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	app->camera = Camera(vec3(3.25f, 3.5f, 3.125f));
 	app->camera.yaw = -135.0f;
@@ -307,12 +322,35 @@ void Init(App* app)
 	Program& depthProgram = app->programs[app->depthProgramIdx];
 	LoadProgramAttributes(depthProgram);
 
+	//Cubemap
+	app->cubemapProgramIdx = LoadProgram(app, "shaders/cubemap.glsl", "CUBEMAP");
+	Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
+	LoadProgramAttributes(cubemapProgram);
+
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
 	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
 	app->blackTexIdx = LoadTexture2D(app, "color_black.png");
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
+
+	//Cubemap ===============================================================================================
+	glGenTextures(1, &app->cubemapAttachmentHandle);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
+
+	std::string path = "CubeMap/cubemap";
+	std::string directions[6] = { "x", "-x", "y", "-y", "z", "-z" };
+	for (u32 i = 0; i < 6; ++i)
+	{
+		std::string finalPath = std::string(path + directions[i] + ".jpg");
+		CreateCubemap(finalPath.c_str(), i);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	OnScreenResize(app);
 }
@@ -658,6 +696,8 @@ void DeferredRender(App* app)
 	}
 
 	glPopDebugGroup();
+
+	DrawCube(app);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1230,6 +1270,18 @@ void GenerateQuad(App* app)
 	glBindVertexArray(0);
 }
 
+void GenerateCube(App* app)
+{
+	//Attribute state
+	glGenVertexArrays(1, &app->cube.vao);
+	glGenBuffers(1, &app->cube.vbo);
+	glBindVertexArray(app->cube.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, app->cube.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(app->cube.vertices), &app->cube.vertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+}
+
 void DrawQuad(App* app)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1297,6 +1349,25 @@ void DrawQuad(App* app)
 
 	glBindVertexArray(0);
 	glUseProgram(0);
+}
+
+void DrawCube(App* app)
+{
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
+
+	glDepthFunc(GL_LEQUAL);
+	Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
+	glUseProgram(cubemapProgram.handle);
+
+	glBindVertexArray(app->cube.vao);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+	glBindVertexArray(0);
+	glDepthFunc(GL_LESS);
+	glUseProgram(0);
+
+	glPopDebugGroup();
 }
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color)

@@ -115,12 +115,65 @@ struct Quad
 	GLuint embeddedElements;
 
 	VertexV3V2 vertices[4] = { vec3(-1.0f, -1.0f, 0.0f),  vec2(0.0f, 0.0f),
-							   vec3( 1.0f, -1.0f, 0.0f),  vec2(1.0f, 0.0f),
-		                       vec3( 1.0f,  1.0f, 0.0f),  vec2(1.0f, 1.0f),
-		                       vec3(-1.0f,  1.0f, 0.0f),  vec2(0.0f, 1.0f)
-							 };
+							   vec3(1.0f, -1.0f, 0.0f),  vec2(1.0f, 0.0f),
+							   vec3(1.0f,  1.0f, 0.0f),  vec2(1.0f, 1.0f),
+							   vec3(-1.0f,  1.0f, 0.0f),  vec2(0.0f, 1.0f)
+	};
 
 	u16 indices[6] = { 0, 1, 2, 0, 2, 3 };
+};
+
+struct Cube
+{
+	GLuint vao;
+	GLuint vbo;
+
+	GLuint embeddedVertices;
+	GLuint embeddedElements;
+
+	float vertices[108] = { 
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		-1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f, -1.0f,
+		 1.0f,  1.0f,  1.0f,
+		 1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f, -1.0f,
+		 1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		 1.0f, -1.0f,  1.0f
+	};
 };
 
 struct Vao
@@ -187,6 +240,7 @@ struct Texture
 {
 	GLuint      handle;
 	std::string filepath;
+	ivec2		size;
 };
 
 struct Program
@@ -197,6 +251,12 @@ struct Program
 	u64                lastWriteTimestamp; // What is this for?
 	VertexShaderLayout vertexInputLayout;
 };
+
+struct Cubemap
+{
+	u32 texture[6];
+};
+
 
 enum class RenderMode
 {
@@ -271,6 +331,8 @@ struct App
 	u32 depthProgramIdx;
 	u32 lightsProgramIdx;
 
+	u32 cubemapProgramIdx;
+
 	// texture indices
 	u32 diceTexIdx;
 	u32 whiteTexIdx;
@@ -309,6 +371,8 @@ struct App
 	RenderMode currentRenderMode;
 	RenderTargetsMode currentRenderTargetMode;
 
+	GLuint cubemapAttachmentHandle;
+
 	GLuint currentAttachmentHandle;
 	GLuint albedoAttachmentHandle;
 	GLuint normalsAttachmentHandle;
@@ -319,6 +383,7 @@ struct App
 	Buffer cbuffer;
 
 	Quad quad;
+	Cube cube;
 
 	std::vector<Texture>  textures;
 	std::vector<Material> materials;
@@ -329,7 +394,9 @@ struct App
 
 	std::vector<Entity> entities;
 	std::vector<Program> changeableShaders;
+	Cubemap cubemap;
 };
+
 
 void Init(App* app);
 
@@ -369,5 +436,8 @@ void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize, GLint
 
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
+
+void GenerateCube(App* app);
+void DrawCube(App* app);
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color = vec3(1.0f, 1.0f, 1.0f));
