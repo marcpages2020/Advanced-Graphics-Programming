@@ -437,6 +437,7 @@ void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize, GLint
 void GenerateQuad(App* app);
 void DrawQuad(App* app);
 
+void CreateCubemap(App* app);
 void GenerateCube(App* app);
 void DrawCube(App* app);
 

@@ -177,17 +177,6 @@ GLuint CreateTexture2DFromImage(Image image)
 	return texHandle;
 }
 
-void CreateCubemap(const char* filepath, int i)
-{
-	Image image = LoadImage(filepath);
-
-	if (image.pixels)
-	{
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, image.size.x, image.size.y, 0, GL_RGB, GL_UNSIGNED_BYTE, image.pixels);
-
-		FreeImage(image);
-	}
-}
 
 u32 LoadTexture2D(App* app, const char* filepath)
 {
@@ -263,6 +252,10 @@ void Init(App* app)
 
 	app->cbuffer = CreateBuffer(maxUniformBufferSize, GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 
+	//Cubemap ===============================================================================================
+	GenerateCube(app);
+	CreateCubemap(app);
+
 	GenerateQuad(app);
 
 	//Engine models
@@ -333,24 +326,6 @@ void Init(App* app)
 	app->blackTexIdx = LoadTexture2D(app, "color_black.png");
 	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
 	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
-
-	//Cubemap ===============================================================================================
-	glGenTextures(1, &app->cubemapAttachmentHandle);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
-
-	std::string path = "CubeMap/cubemap";
-	std::string directions[6] = { "x", "-x", "y", "-y", "z", "-z" };
-	for (u32 i = 0; i < 6; ++i)
-	{
-		std::string finalPath = std::string(path + directions[i] + ".jpg");
-		CreateCubemap(finalPath.c_str(), i);
-	}
-
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	OnScreenResize(app);
 }
@@ -660,6 +635,13 @@ void ForwardRender(App* app)
 	}
 	glPopDebugGroup();
 
+
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
+
+	DrawCube(app);
+
+	glPopDebugGroup();
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Textured quad");
@@ -697,7 +679,11 @@ void DeferredRender(App* app)
 
 	glPopDebugGroup();
 
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
+
 	DrawCube(app);
+
+	glPopDebugGroup();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1270,18 +1256,6 @@ void GenerateQuad(App* app)
 	glBindVertexArray(0);
 }
 
-void GenerateCube(App* app)
-{
-	//Attribute state
-	glGenVertexArrays(1, &app->cube.vao);
-	glGenBuffers(1, &app->cube.vbo);
-	glBindVertexArray(app->cube.vao);
-	glBindBuffer(GL_ARRAY_BUFFER, app->cube.vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(app->cube.vertices), &app->cube.vertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-}
-
 void DrawQuad(App* app)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1351,13 +1325,68 @@ void DrawQuad(App* app)
 	glUseProgram(0);
 }
 
+void CreateCubemap(App* app)
+{
+	glGenTextures(1, &app->cubemapAttachmentHandle);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
+
+	std::string path = "CubeMap/";
+	std::string directions[6] = { "right", "left", "top", "bottom", "front", "back" };
+	
+	int width, height, nrChannels;
+	for (u32 i = 0; i < 6; i++)
+	{
+		std::string texturePath = std::string(path + directions[i] + ".jpg");
+
+		unsigned char* data = stbi_load(texturePath.c_str(), &width, &height, &nrChannels, 0);
+
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+				0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+			);
+
+			stbi_image_free(data);
+		}
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+}
+
+void GenerateCube(App* app)
+{
+	//Attribute state
+	glGenVertexArrays(1, &app->cube.vao);
+	glGenBuffers(1, &app->cube.vbo);
+	glBindVertexArray(app->cube.vao);
+	glBindBuffer(GL_ARRAY_BUFFER, app->cube.vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(app->cube.vertices), &app->cube.vertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+}
+
 void DrawCube(App* app)
 {
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
-
 	glDepthFunc(GL_LEQUAL);
+	glDepthMask(GL_FALSE);
 	Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
 	glUseProgram(cubemapProgram.handle);
+
+	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
+	float znear = 0.1f;
+	float zfar = 1000.0f;
+	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
+	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
+
+	GLuint projectionLocation = glGetUniformLocation(cubemapProgram.handle, "projection");
+	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
+
+	GLuint viewLocation = glGetUniformLocation(cubemapProgram.handle, "view");
+	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
 
 	glBindVertexArray(app->cube.vao);
 	glActiveTexture(GL_TEXTURE0);
@@ -1365,9 +1394,8 @@ void DrawCube(App* app)
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	glBindVertexArray(0);
 	glDepthFunc(GL_LESS);
+	glDepthMask(GL_TRUE);
 	glUseProgram(0);
-
-	glPopDebugGroup();
 }
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color)
