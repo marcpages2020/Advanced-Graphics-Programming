@@ -91,22 +91,27 @@ void main()
             oColor = vec4(vec3(texture(uDepth, vTexCoord).r),1.0);
             break;
         case 4:
-           for(int i = 0; i < uLightCount; ++i)
-           {
-                vec3 lightDir = normalize(uLight[i].direction);
-                vec3 lightResult = vec3(0.0f);
-                vec3 viewDir = normalize(uCameraPosition - vPosition);
+           if(vNormal.x==vNormal.z&&vNormal.x==vNormal.y){
+                oColor = vec4(vColor, 1.0f);
+           }
+           else{
+               for(int i = 0; i < uLightCount; ++i)
+               {
+                       vec3 lightDir = normalize(uLight[i].direction);
+                       vec3 lightResult = vec3(0.0f);
+                       vec3 viewDir = normalize(uCameraPosition - vPosition);
 
-                if(uLight[i].type == 0)
-                {
-                    lightResult = CalculateDirectionalLight(uLight[i], vPosition, normalize(vNormal), viewDir);
-                }
-                else
-                {
-                    lightResult = CalculatePointLight(uLight[i], vPosition, normalize(vNormal), viewDir);
-                }
-                
-                oColor.rgb += lightResult * vColor.rgb;    
+                       if(uLight[i].type == 0)
+                       {
+                           lightResult = CalculateDirectionalLight(uLight[i], vPosition, normalize(vNormal), viewDir);
+                       }
+                       else
+                       {
+                           lightResult = CalculatePointLight(uLight[i], vPosition, normalize(vNormal), viewDir);
+                       }
+                        
+                       oColor.rgb += lightResult * vColor.rgb;    
+               }
            }
             break;
         default:
