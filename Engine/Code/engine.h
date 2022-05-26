@@ -9,6 +9,7 @@
 
 #define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
 #define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
+#define PushFloat(buffer, value) { float v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
 #define PushVec3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
 #define PushVec4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
 #define PushMat3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
@@ -290,6 +291,8 @@ struct Entity
 	mat4 worldMatrix;
 	mat4 worldViewProjection;
 	vec3 position;
+	float metallic = 0.5f;
+	float roughness = 0.5f;
 	u32 modelIndex;
 	u32 localParamsOffset;
 	u32 localParamsSize;

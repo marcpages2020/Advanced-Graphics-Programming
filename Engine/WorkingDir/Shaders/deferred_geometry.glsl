@@ -29,21 +29,31 @@ layout(binding = 1, std140) uniform LocalParams
 {
     mat4 uWorldMatrix;
     mat4 uWorldViewProjectionMatrix;
+    float metallic;
+    float roughness;
 };
 
 out vec2 vTexCoord;
 out vec3 vPosition; //In worldspace
 out vec3 vNormal;   //In worldspace
 out vec3 vViewDir;  //In worldspace
+out vec4 FragColor;
 
 uniform mat4 projectionViewMatrix;
 
 void main()
 {
     vTexCoord = aTexCoord;
-    vPosition = vec3(uWorldMatrix * vec4(aPosition, 1.0));
-    vNormal   = vec3(uWorldMatrix * vec4(aNormal, 0.0)); 
+    
+    mat4 model = mat4(1.0f);
+    //vNormal   = vec3(uWorldMatrix * vec4(aNormal, 0.0));
+    vNormal = mat3(transpose(inverse(model))) * aNormal;
+
+    //vPosition = vec3(uWorldMatrix * vec4(aPosition, 1.0));
+    vPosition = vec3(model * vec4(aPosition, 1.0f));
+
     vViewDir  = uCameraPosition - vPosition;
+
     gl_Position = uWorldViewProjectionMatrix * vec4(aPosition, 1.0f);
 }   
 
@@ -63,6 +73,7 @@ in vec3 vNormal;   //In worldspace
 in vec3 vViewDir;  //In worldspace
 
 uniform sampler2D uTexture;
+uniform samplerCube cubemap;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
@@ -70,6 +81,14 @@ layout(binding = 0, std140) uniform GlobalParams
     vec3 uCameraPosition;
     unsigned int uLightCount;
     Light uLight[16];
+};
+
+layout(binding = 1, std140) uniform LocalParams
+{
+    mat4 uWorldMatrix;
+    mat4 uWorldViewProjectionMatrix;
+    float metallic;
+    float roughness;
 };
 
 layout(location = 0) out vec4 rt0; //Albedo 
@@ -81,6 +100,12 @@ void main()
     rt0 = texture(uTexture, vTexCoord);
     rt1 = vec4(vNormal, 1.0);
     rt2 = vec4(vPosition, 1.0);
+
+    vec3 I = normalize(vPosition - uCameraPosition);
+    vec3 R = reflect(I, normalize(vNormal));
+
+    vec4 rt4 = vec4(texture(cubemap, R).rgb, 1.0f);
+    rt0 = mix(rt0, rt4, metallic);
 }
 
 #endif

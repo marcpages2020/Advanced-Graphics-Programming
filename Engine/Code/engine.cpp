@@ -415,9 +415,14 @@ void Gui(App* app)
 
 			ImGui::Text(entityName.c_str());
 
-			float position[3] = { app->entities[i].position.x, app->entities[i].position.y, app->entities[i].position.z };
+			Entity& entity = app->entities[i];
+			float position[3] = { entity.position.x, entity.position.y, entity.position.z };
 			ImGui::DragFloat3("Position", position, 0.1f, -20000000000000000.0f, 200000000000000000000.0f);
-			app->entities[i].position = vec3(position[0], position[1], position[2]);
+			entity.position = vec3(position[0], position[1], position[2]);
+
+			ImGui::DragFloat("Metallic", &entity.metallic, 0.05f, 0.0f, 1.0f, "%.2f");
+			ImGui::DragFloat("Roughness", &entity.roughness, 0.05f, 0.0f, 1.0f, "%.2f");
+
 			ImGui::PopID();
 		}
 		ImGui::TreePop();
@@ -550,6 +555,8 @@ void Update(App* app)
 		entity.localParamsOffset = app->cbuffer.head;
 		PushMat4(app->cbuffer, world);
 		PushMat4(app->cbuffer, worldViewProjection);
+		PushFloat(app->cbuffer, entity.metallic);
+		PushFloat(app->cbuffer, entity.roughness);
 		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
 	}
 
@@ -718,13 +725,16 @@ void RenderModel(App* app, Entity entity, Program program)
 			glUniform1i(textureLocation, 0);
 		}
 
-		GLuint matrixLocation = glGetUniformLocation(program.handle, "projectionViewMatrix");
-		//glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, &app->entities[i].worldViewProjection[0][0]);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
+		GLuint cubemapLocation = glGetUniformLocation(program.handle, "cubemap");
+		glUniform1i(cubemapLocation, 1);
 
 		Submesh& submesh = mesh.submeshes[j];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
 	}
 	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	glUnmapBuffer(GL_UNIFORM_BUFFER);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -1393,6 +1403,7 @@ void DrawCube(App* app)
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
 	glUseProgram(0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 }
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color)
