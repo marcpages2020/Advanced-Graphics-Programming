@@ -72,6 +72,7 @@ void main()
 {
     vec3 vColor    = vec3(texture(uColor, vTexCoord));
     vec3 vNormal   = vec3(texture(uNormals, vTexCoord));
+    float alpha = texture(uNormals,vTexCoord).a;
     vec3 vPosition = vec3(texture(uPosition, vTexCoord));
 
     oColor = vec4(vec3(0.0f), 1.0f);
@@ -91,10 +92,7 @@ void main()
             oColor = vec4(vec3(texture(uDepth, vTexCoord).r),1.0);
             break;
         case 4:
-           if(vNormal.x==vNormal.z&&vNormal.x==vNormal.y){
-                oColor = vec4(vColor, 1.0f);
-           }
-           else{
+           if(alpha>=0.1){
                for(int i = 0; i < uLightCount; ++i)
                {
                        vec3 lightDir = normalize(uLight[i].direction);
@@ -112,6 +110,9 @@ void main()
                         
                        oColor.rgb += lightResult * vColor.rgb;    
                }
+           }
+           else{
+               oColor = vec4(vColor, 1.0f);
            }
             break;
         default:

@@ -674,7 +674,7 @@ void DeferredRender(App* app)
 	for (size_t i = 0; i < app->lights.size(); i++)
 	{
 		Light& light = app->lights[i];
-		RenderLight(app, light, lightsProgram);
+		//RenderLight(app, light, lightsProgram);
 	}
 
 	glPopDebugGroup();
@@ -724,7 +724,7 @@ void RenderModel(App* app, Entity entity, Program program)
 		Submesh& submesh = mesh.submeshes[j];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
 	}
-
+	glBindTexture(GL_TEXTURE_2D, 0);
 	glUnmapBuffer(GL_UNIFORM_BUFFER);
 	glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
@@ -1273,9 +1273,6 @@ void DrawQuad(App* app)
 
 	glUseProgram(quadProgram.handle);
 	glBindVertexArray(app->quad.vao);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//FORWARD
 	if (app->currentRenderMode == RenderMode::FORWARD)
