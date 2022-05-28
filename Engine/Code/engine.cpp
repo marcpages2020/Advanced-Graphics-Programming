@@ -311,6 +311,10 @@ void Init(App* app)
 	LoadProgramAttributes(deferredQuadProgram);
 	app->programUniformTexture = glGetUniformLocation(deferredQuadProgram.handle, "uTexture");
 
+	app->deferredPBRQuadProgramIdx = LoadProgram(app, "shaders/pbr_deferred_quad.glsl", "DEFERRED_PBR_QUAD");
+	Program& deferredPBRQuadProgram = app->programs[app->deferredPBRQuadProgramIdx];
+	LoadProgramAttributes(deferredPBRQuadProgram);
+
 	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
 	Program& depthProgram = app->programs[app->depthProgramIdx];
 	LoadProgramAttributes(depthProgram);
@@ -387,7 +391,7 @@ void Gui(App* app)
 		ImGui::EndCombo();
 	}
 
-	const char* renderTargetBuffers[] = { "ALBEDO", "NORMALS", "POSITION", "DEPTH", "FINAL RENDER" };
+	const char* renderTargetBuffers[] = { "ALBEDO", "NORMALS", "POSITION", "DEPTH", "METALLIC", "ROUGHNESS", "FINAL RENDER" };
 	if (ImGui::BeginCombo("Render Targets", renderTargetBuffers[(u32)app->currentRenderTargetMode]))
 	{
 		for (size_t i = 0; i < IM_ARRAYSIZE(renderTargetBuffers); ++i)
@@ -555,29 +559,27 @@ void Update(App* app)
 		entity.localParamsOffset = app->cbuffer.head;
 		PushMat4(app->cbuffer, world);
 		PushMat4(app->cbuffer, worldViewProjection);
-		PushFloat(app->cbuffer, entity.metallic);
-		PushFloat(app->cbuffer, entity.roughness);
 		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
 	}
 
-	//Light entities
-	for (size_t i = 0; i < app->lights.size(); i++)
-	{
-		AlignHead(app->cbuffer, app->uniformBufferAlignment);
+	////Light entities
+	//for (size_t i = 0; i < app->lights.size(); i++)
+	//{
+	//	AlignHead(app->cbuffer, app->uniformBufferAlignment);
 
-		Light& light = app->lights[i];
-		Entity& entity = light.entity;
-		entity.position = light.position;
+	//	Light& light = app->lights[i];
+	//	Entity& entity = light.entity;
+	//	entity.position = light.position;
 
-		mat4 world = entity.worldMatrix;
-		world = TransformPositionRotationScale(light.position, light.direction, light.type == LightType::LightType_Directional ? vec3(0.45f) : vec3(0.25f));
-		mat4 worldViewProjection = projection * view * world;
+	//	mat4 world = entity.worldMatrix;
+	//	world = TransformPositionRotationScale(light.position, light.direction, light.type == LightType::LightType_Directional ? vec3(0.45f) : vec3(0.25f));
+	//	mat4 worldViewProjection = projection * view * world;
 
-		entity.localParamsOffset = app->cbuffer.head;
-		PushMat4(app->cbuffer, world);
-		PushMat4(app->cbuffer, worldViewProjection);
-		entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
-	}
+	//	entity.localParamsOffset = app->cbuffer.head;
+	//	PushMat4(app->cbuffer, world);
+	//	PushMat4(app->cbuffer, worldViewProjection);
+	//	entity.localParamsSize = app->cbuffer.head - entity.localParamsOffset;
+	//}
 
 	UnmapBuffer(app->cbuffer);
 }
@@ -590,7 +592,8 @@ void Render(App* app)
 
 	//Select on which render targets to draw
 	GLuint drawBuffers[] = { app->albedoAttachmentHandle, app->normalsAttachmentHandle,
-		app->positionAttachmentHandle, app->finalRenderAttachmentHandle };
+		app->positionAttachmentHandle, app->metallicAttachmentHandle, app->roughnessAttachmentHandle,
+		app->finalRenderAttachmentHandle };
 
 	glDrawBuffers(ARRAY_COUNT(drawBuffers), drawBuffers);
 
@@ -725,10 +728,11 @@ void RenderModel(App* app, Entity entity, Program program)
 			glUniform1i(textureLocation, 0);
 		}
 
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
-		GLuint cubemapLocation = glGetUniformLocation(program.handle, "cubemap");
-		glUniform1i(cubemapLocation, 1);
+		GLuint metallicLocation = glGetUniformLocation(program.handle, "uMetallic");
+		glUniform1f(metallicLocation, entity.metallic);
+
+		GLuint roughnessLocation = glGetUniformLocation(program.handle, "uRoughness");
+		glUniform1f(roughnessLocation, entity.roughness);
 
 		Submesh& submesh = mesh.submeshes[j];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
@@ -862,6 +866,8 @@ void OnScreenResize(App* app)
 	GenerateColorTexture(app->albedoAttachmentHandle, app->displaySize, GL_RGBA8);
 	GenerateColorTexture(app->normalsAttachmentHandle, app->displaySize, GL_RGBA16F);
 	GenerateColorTexture(app->positionAttachmentHandle, app->displaySize, GL_RGBA16F);
+	GenerateColorTexture(app->metallicAttachmentHandle, app->displaySize, GL_RGBA16F);
+	GenerateColorTexture(app->roughnessAttachmentHandle, app->displaySize, GL_RGBA16F);
 	GenerateColorTexture(app->finalRenderAttachmentHandle, app->displaySize, GL_RGBA16F);
 
 	glGenTextures(1, &app->depthAttachmentHandle);
@@ -880,11 +886,14 @@ void OnScreenResize(App* app)
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, app->albedoAttachmentHandle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, app->normalsAttachmentHandle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, app->positionAttachmentHandle, 0);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, app->finalRenderAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, app->metallicAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, app->roughnessAttachmentHandle, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, app->finalRenderAttachmentHandle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, app->depthAttachmentHandle, 0);
 
-	GLenum buffers[] = { GL_COLOR_ATTACHMENT0,  GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-	glDrawBuffers(4, buffers);
+	GLenum buffers[] = { GL_COLOR_ATTACHMENT0,  GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, 
+		GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5 };
+	glDrawBuffers(6, buffers);
 
 	GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE)
@@ -1275,7 +1284,8 @@ void DrawQuad(App* app)
 
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
 
-	Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
+	//Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
+	Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredPBRQuadProgramIdx];
 
 	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH) {
 		quadProgram = app->programs[app->depthProgramIdx];
@@ -1296,6 +1306,8 @@ void DrawQuad(App* app)
 		case RenderTargetsMode::NORMALS:	  glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle); break;
 		case RenderTargetsMode::POSITION:	  glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle); break;
 		case RenderTargetsMode::DEPTH:        glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle); break;
+		case RenderTargetsMode::METALLIC:	  glBindTexture(GL_TEXTURE_2D, app->metallicAttachmentHandle); break;
+		case RenderTargetsMode::ROUGHNESS:	  glBindTexture(GL_TEXTURE_2D, app->roughnessAttachmentHandle); break;
 		case RenderTargetsMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
 		default:							  glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
 		}
@@ -1303,7 +1315,7 @@ void DrawQuad(App* app)
 	//DEFERRED
 	else
 	{
-		Program& deferredQuadProgram = app->programs[app->deferredQuadProgramIdx];
+		Program& deferredQuadProgram = app->programs[app->deferredPBRQuadProgramIdx];
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle);
@@ -1321,9 +1333,24 @@ void DrawQuad(App* app)
 		glUniform1i(positionTextureLocation, 2);
 
 		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, app->metallicAttachmentHandle);
+		GLuint metallicTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uMetallic");
+		glUniform1i(metallicTextureLocation, 3);
+
+		glActiveTexture(GL_TEXTURE4);
+		glBindTexture(GL_TEXTURE_2D, app->roughnessAttachmentHandle);
+		GLuint roughnessTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uRoughness");
+		glUniform1i(roughnessTextureLocation, 4);
+
+		glActiveTexture(GL_TEXTURE5);
 		glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
 		GLuint depthTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uDepth");
-		glUniform1i(depthTextureLocation, 3);
+		glUniform1i(depthTextureLocation, 5);
+
+		glActiveTexture(GL_TEXTURE6);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
+		GLuint cubemapLocation = glGetUniformLocation(deferredQuadProgram.handle, "cubemap");
+		glUniform1i(cubemapLocation, 6);
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);

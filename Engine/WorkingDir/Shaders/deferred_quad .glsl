@@ -71,7 +71,7 @@ vec3 CalculatePointLight(Light light, vec3 position, vec3 normal, vec3 viewDir);
 void main()
 {
     vec3 vColor    = vec3(texture(uColor, vTexCoord));
-    vec3 vNormal   = vec3(texture(uNormals, vTexCoord));
+    vec3 vNormal   = normalize(vec3(texture(uNormals, vTexCoord)));
     float alpha = texture(uNormals,vTexCoord).a;
     vec3 vPosition = vec3(texture(uPosition, vTexCoord));
 

@@ -29,8 +29,6 @@ layout(binding = 1, std140) uniform LocalParams
 {
     mat4 uWorldMatrix;
     mat4 uWorldViewProjectionMatrix;
-    float metallic;
-    float roughness;
 };
 
 out vec2 vTexCoord;
@@ -73,7 +71,8 @@ in vec3 vNormal;   //In worldspace
 in vec3 vViewDir;  //In worldspace
 
 uniform sampler2D uTexture;
-uniform samplerCube cubemap;
+uniform float uMetallic;
+uniform float uRoughness;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
@@ -87,25 +86,21 @@ layout(binding = 1, std140) uniform LocalParams
 {
     mat4 uWorldMatrix;
     mat4 uWorldViewProjectionMatrix;
-    float metallic;
-    float roughness;
 };
 
 layout(location = 0) out vec4 rt0; //Albedo 
 layout(location = 1) out vec4 rt1; //Normals 
 layout(location = 2) out vec4 rt2; //Position 
+layout(location = 3) out vec4 rt3; //Metallic 
+layout(location = 4) out vec4 rt4; //Roughness 
 
 void main()
 {
     rt0 = texture(uTexture, vTexCoord);
     rt1 = vec4(vNormal, 1.0);
     rt2 = vec4(vPosition, 1.0);
-
-    vec3 I = normalize(vPosition - uCameraPosition);
-    vec3 R = reflect(I, normalize(vNormal));
-
-    vec4 rt4 = vec4(texture(cubemap, R).rgb, 1.0f);
-    rt0 = mix(rt0, rt4, metallic);
+    rt3 = vec4(vec3(uMetallic), 1.0);
+    rt4 = vec4(vec3(uRoughness), 1.0);
 }
 
 #endif

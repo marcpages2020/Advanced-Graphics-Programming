@@ -8,8 +8,8 @@
 #include <glad/glad.h>
 
 #define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
-#define PushUInt(buffer, value) { u32 v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
-#define PushFloat(buffer, value) { float v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
+#define PushUInt(buffer, value)  { u32   v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
+#define PushFloat(buffer, value) { f32   v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }
 #define PushVec3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
 #define PushVec4(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
 #define PushMat3(buffer, value) PushAlignedData(buffer, value_ptr(value), sizeof(value), sizeof(vec4))
@@ -271,6 +271,8 @@ enum class RenderTargetsMode
 	NORMALS,
 	POSITION,
 	DEPTH,
+	METALLIC, 
+	ROUGHNESS,
 	FINAL_RENDER,
 };
 
@@ -328,6 +330,7 @@ struct App
 	//Quad
 	u32 forwardQuadProgramIdx;
 	u32 deferredQuadProgramIdx;
+	u32 deferredPBRQuadProgramIdx;
 
 	u32 forwardGeometryProgramIdx;
 	u32 deferredGeometryProgramIdx;
@@ -380,8 +383,10 @@ struct App
 	GLuint albedoAttachmentHandle;
 	GLuint normalsAttachmentHandle;
 	GLuint positionAttachmentHandle;
-	GLuint finalRenderAttachmentHandle;
 	GLuint depthAttachmentHandle;
+	GLuint metallicAttachmentHandle;
+	GLuint roughnessAttachmentHandle;
+	GLuint finalRenderAttachmentHandle;
 
 	Buffer cbuffer;
 
