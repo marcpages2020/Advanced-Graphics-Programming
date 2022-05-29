@@ -373,6 +373,8 @@ struct App
 	u32 bufferHandle;
 
 	GLuint framebufferHandle;
+	GLuint irradianceFramebufferHandle;
+	GLuint renderBufferHandle;
 	//std::vector<GLuint> colorAttachmentHandles;
 
 	RenderMode currentRenderMode;
@@ -449,6 +451,7 @@ void DrawQuad(App* app);
 
 void CreateCubemap(App* app);
 void GenerateCube(App* app);
-void DrawCube(App* app);
+void DrawCube(App* app, u32 programIdx, u32 programHandle, bool useViewAndProjection,mat4 view, mat4 projection);
+void CreateIrradianceMap(App* app);
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color = vec3(1.0f, 1.0f, 1.0f));

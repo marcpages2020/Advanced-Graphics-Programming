@@ -15,12 +15,12 @@ out vec3 worldPos;
 void main()
 {
     worldPos = aPosition;
-    gl_Position = projection * view * vec4(worldPos, 1.0f);
+    gl_Position = (projection * view * vec4(worldPos, 1.0f)).xyww;
 }
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////
 
-in vec3 WorldPos;
+in vec3 worldPos;
 
 uniform samplerCube environmentMap;
 
@@ -30,7 +30,7 @@ const float PI = 3.14159265359;
 
 void main()
 {
-    vec3 N = normalize(WorldPos);
+    vec3 N = normalize(worldPos);
     vec3 irradiance = vec3(0.0);   
 
     vec3 up    = vec3(0.0, 1.0, 0.0);
@@ -56,7 +56,6 @@ void main()
     irradiance = PI * irradiance * (1.0 / float(nrSamples));
 
     oColor = vec4(irradiance, 1.0);
-    oColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 }
 
 #endif

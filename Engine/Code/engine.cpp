@@ -652,7 +652,13 @@ void ForwardRender(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
 
-	DrawCube(app);
+	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
+	float znear = 0.1f;
+	float zfar = 1000.0f;
+	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
+	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
+
+	DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
 
 	glPopDebugGroup();
 
@@ -695,7 +701,14 @@ void DeferredRender(App* app)
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
 
-	DrawCube(app);
+	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
+	float znear = 0.1f;
+	float zfar = 1000.0f;
+	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
+	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
+
+	CreateIrradianceMap(app);
+	DrawCube(app, app->cubemapProgramIdx, app->irradianceMapAttachmentHandle, true, view, projection);
 
 	glPopDebugGroup();
 
@@ -895,7 +908,7 @@ void OnScreenResize(App* app)
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, app->finalRenderAttachmentHandle, 0);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, app->depthAttachmentHandle, 0);
 
-	GLenum buffers[] = { GL_COLOR_ATTACHMENT0,  GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, 
+	GLenum buffers[] = { GL_COLOR_ATTACHMENT0,  GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3,
 		GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5 };
 	glDrawBuffers(6, buffers);
 
@@ -917,6 +930,8 @@ void OnScreenResize(App* app)
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	CreateIrradianceMap(app);
 }
 
 void HandleInput(App* app)
@@ -1370,7 +1385,7 @@ void CreateCubemap(App* app)
 
 	std::string path = "CubeMap/";
 	std::string directions[6] = { "right", "left", "top", "bottom", "front", "back" };
-	
+
 	int width, height, nrChannels;
 	for (u32 i = 0; i < 6; i++)
 	{
@@ -1407,35 +1422,111 @@ void GenerateCube(App* app)
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 }
 
-void DrawCube(App* app)
+void DrawCube(App* app, u32 programIdx, u32 programHandle, bool useViewAndProjection, mat4 view = mat4(), mat4 projection = mat4())
 {
 	glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_FALSE);
-	//Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
-	Program& cubemapProgram = app->programs[app->irradianceMapProgramIdx];
-	glUseProgram(cubemapProgram.handle);
 
-	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
-	float znear = 0.1f;
-	float zfar = 1000.0f;
-	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
-	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
+	if (useViewAndProjection)
+	{
+		Program& cubemapProgram = app->programs[programIdx];
+		glUseProgram(cubemapProgram.handle);
 
-	GLuint projectionLocation = glGetUniformLocation(cubemapProgram.handle, "projection");
-	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
+		GLuint projectionLocation = glGetUniformLocation(cubemapProgram.handle, "projection");
+		glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &projection[0][0]);
 
-	GLuint viewLocation = glGetUniformLocation(cubemapProgram.handle, "view");
-	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+		GLuint viewLocation = glGetUniformLocation(cubemapProgram.handle, "view");
+		glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &view[0][0]);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, programHandle);
+	}
 
 	glBindVertexArray(app->cube.vao);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	glBindVertexArray(0);
 	glDepthFunc(GL_LESS);
 	glDepthMask(GL_TRUE);
+
+	if (useViewAndProjection)
+	{
+		glUseProgram(0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	}
+}
+
+void CreateIrradianceMap(App* app)
+{
+	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "IrradianceMap");
+
+	glGenFramebuffers(1, &app->irradianceFramebufferHandle);
+	
+	glGenRenderbuffers(1, &app->renderBufferHandle);
+	glBindFramebuffer(GL_FRAMEBUFFER, app->irradianceFramebufferHandle);
+	glBindRenderbuffer(GL_RENDERBUFFER, app->renderBufferHandle);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, app->renderBufferHandle);
+
+	glGenTextures(1, &app->irradianceMapAttachmentHandle);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, app->irradianceMapAttachmentHandle);
+
+	for (u32 i = 0; i < 6; i++)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+			0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
+	}
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, app->irradianceFramebufferHandle);
+	glBindRenderbuffer(GL_RENDERBUFFER, app->renderBufferHandle);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
+
+	Program& irradianceMapProgram = app->programs[app->irradianceMapProgramIdx];
+	glUseProgram(irradianceMapProgram.handle);
+
+	glm::mat4 captureViews[] =
+	{
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+	};
+
+	glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
+	GLuint projectionLocation = glGetUniformLocation(irradianceMapProgram.handle, "projection");
+	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, &captureProjection[0][0]);
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, app->cubemapAttachmentHandle);
+	GLuint textureLocation = glGetUniformLocation(irradianceMapProgram.handle, "environmentMap");
+	glUniform1d(textureLocation, 0);
+
+	glViewport(0, 0, 32, 32);
+	glBindFramebuffer(GL_FRAMEBUFFER, app->irradianceFramebufferHandle);
+
+	for (size_t i = 0; i < 6; i++)
+	{
+		GLuint viewLocation = glGetUniformLocation(irradianceMapProgram.handle, "view");
+		glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &captureViews[i][0][0]);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, app->irradianceMapAttachmentHandle, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		DrawCube(app, app->irradianceMapProgramIdx, app->cubemapAttachmentHandle, false);
+	}
+
 	glUseProgram(0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glPopDebugGroup();
 }
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color)
