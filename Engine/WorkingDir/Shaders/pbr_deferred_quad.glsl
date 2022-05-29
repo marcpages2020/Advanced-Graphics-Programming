@@ -120,14 +120,12 @@ void main()
         case 6:
            if(alpha>=0.1)
            {
-               vec3 I = normalize(vPosition - uCameraPosition);
-               vec3 R = reflect(I, normalize(vNormal));
-
-               vec4 skybox = vec4(texture(cubemap, R).rgb, 1.0f);
-               vec3 albedo = mix(vec4(vColor, 1.0f), skybox, vMetallic).rgb;
-
                vec3 N = vNormal;
                vec3 V = normalize(uCameraPosition - vWorldPosition);
+               vec3 R = reflect(-V, N);
+
+               vec4 skybox = vec4(texture(cubemap, R).rgb, 1.0f);
+               vec3 albedo = vColor.rgb; //mix(vec4(vColor, 1.0f), skybox, vMetallic).rgb;
 
                vec3 F0 = vec3(0.04); 
                F0      = mix(F0, albedo, vMetallic);
@@ -144,13 +142,11 @@ void main()
                        vec3 radiance = uLight[i].color;
                        if(uLight[i].type == 0)
                        {
-                           //lightResult = CalculateDirectionalLight(uLight[i], vPosition, normalize(vNormal), viewDir);
                            L = uLight[i].direction;
                            
                        }
                        else
                        {
-                           //lightResult = CalculatePointLight(uLight[i], vPosition, normalize(vNormal), viewDir);
                             L = normalize(uLight[i].position - vWorldPosition);
                             float distance = length(uLight[i].position - vWorldPosition);
                             float attenuation = 1.0 / (distance * distance);
@@ -161,15 +157,15 @@ void main()
 
                         float NDF = DistributionGGX(N, H, vRoughness);       
                         float G   = GeometrySmith(N, V, L, vRoughness);   
-                        vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
-
-                        vec3 kS = F;
-                        vec3 kD = vec3(1.0) - kS;
-                        kD *= 1.0 - vMetallic;     
+                        vec3 F    = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
                         vec3 numerator    = NDF * G * F;
                         float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0)  + 0.0001;
                         vec3 specular     = numerator / denominator; 
+
+                        vec3 kS = F;
+                        vec3 kD = vec3(1.0) - kS;
+                        kD *= 1.0 - vMetallic;     
 
                         // add to outgoing radiance Lo
                         float NdotL = max(dot(N, L), 0.0);                
@@ -177,16 +173,18 @@ void main()
                         
                        //oColor.rgb += lightResult * albedo.rgb;    
                }
-               vec3 ambient = vec3(0.03f) * albedo;
+
+               vec3 kS = fresnelSchlick(max(dot(N,V), 0.0f), F0);
+               vec3 kD = 1.0 - kS;
+               kD *= 1.0 - vMetallic;
+               vec3 irradiance = texture(cubemap, N).rgb;
+               vec3 diffuse = irradiance * albedo;
+               vec3 ambient = kD * diffuse;
+               
                vec3 color = ambient + Lo;
 
                 color = color / (color + vec3(1.0f));
                 color = pow(color, vec3(1.0f/2.2f));
-
-                /* if(metallic > 0.1f)
-                {
-                    color = vec3(1.0f, 0.0f, 0.0f);
-                } */
 
                 oColor = vec4(color, 1.0f);
            }
@@ -198,62 +196,6 @@ void main()
             oColor = vec4(vColor, 1.0f);
             break;
     }
-}
-
-vec3 CalculateDirectionalLight(Light light, vec3 position, vec3 normal, vec3 viewDir)
-{
-    vec3 lightDir = normalize(light.direction);
-
-    float ambientStrenght = 0.2;
-    vec3  ambient = ambientStrenght * light.color;
-
-    float diff = max(dot(normal, lightDir), 0.0f);
-    vec3 diffuse = diff * light.color;
-
-    float specularStrength = 0.1f;
-    vec3 reflectDir = reflect(-lightDir, normal);
-    
-    viewDir = normalize(viewDir);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32);
-    vec3 specular = specularStrength * spec * light.color;
-
-    return ambient + diffuse + specular;
-}
-
-vec3 CalculatePointLight(Light light, vec3 position, vec3 normal, vec3 viewDir)
-{
-    vec3 lightDir = position - light.position;
-    lightDir = normalize(-lightDir);
-
-    float constant = 1.0f;
-    float linear = 0.09f;
-    float quadratic = 0.032f;
-
-    float distance = length(light.position - position);
-    float attenuation = 1.0f / (constant + linear * distance + quadratic * (distance * distance));
-
-    float ambientStrenght = 0.2;
-    vec3  ambient = ambientStrenght * light.color;
-
-    float diff = max(dot(normal, lightDir), 0.0f);
-    vec3 diffuse = diff * light.color;
-
-    float specularStrength = 0.1f;
-    vec3 reflectDir = reflect(-lightDir, normal);
-    
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 2);
-    vec3 specular = specularStrength * spec * light.color;
-
-    ambient *= attenuation;
-    diffuse *= attenuation;
-    specular *= attenuation;
-
-    return ambient + diffuse + specular;
-}
-
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0f - cosTheta, 0.0f, 1.0f), 5.0f);
 }
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
@@ -289,6 +231,11 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float ggx1  = GeometrySchlickGGX(NdotL, roughness);
 	
     return ggx1 * ggx2;
+}
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(clamp(1.0f - cosTheta, 0.0f, 1.0f), 5.0f);
 }
 
 #endif

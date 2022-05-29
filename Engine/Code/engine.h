@@ -338,6 +338,7 @@ struct App
 	u32 lightsProgramIdx;
 
 	u32 cubemapProgramIdx;
+	u32 irradianceMapProgramIdx;
 
 	// texture indices
 	u32 diceTexIdx;
@@ -387,6 +388,7 @@ struct App
 	GLuint metallicAttachmentHandle;
 	GLuint roughnessAttachmentHandle;
 	GLuint finalRenderAttachmentHandle;
+	GLuint irradianceMapAttachmentHandle;
 
 	Buffer cbuffer;
 

@@ -324,6 +324,10 @@ void Init(App* app)
 	Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
 	LoadProgramAttributes(cubemapProgram);
 
+	app->irradianceMapProgramIdx = LoadProgram(app, "shaders/irradiance_map.glsl", "IRRADIANCE_MAP");
+	Program& irradianceMapProgram = app->programs[app->irradianceMapProgramIdx];
+	LoadProgramAttributes(irradianceMapProgram);
+
 	//Load Textures
 	app->diceTexIdx = LoadTexture2D(app, "dice.png");
 	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
@@ -1407,7 +1411,8 @@ void DrawCube(App* app)
 {
 	glDepthFunc(GL_LEQUAL);
 	glDepthMask(GL_FALSE);
-	Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
+	//Program& cubemapProgram = app->programs[app->cubemapProgramIdx];
+	Program& cubemapProgram = app->programs[app->irradianceMapProgramIdx];
 	glUseProgram(cubemapProgram.handle);
 
 	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
