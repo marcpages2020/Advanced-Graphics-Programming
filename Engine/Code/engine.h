@@ -339,6 +339,8 @@ struct App
 
 	u32 cubemapProgramIdx;
 	u32 irradianceMapProgramIdx;
+	u32 prefilterMapProgramIdx;
+	u32 brdfProgramIdx;
 
 	// texture indices
 	u32 diceTexIdx;
@@ -373,7 +375,7 @@ struct App
 	u32 bufferHandle;
 
 	GLuint framebufferHandle;
-	GLuint irradianceFramebufferHandle;
+	GLuint captureFramebufferHandle;
 	GLuint renderBufferHandle;
 	//std::vector<GLuint> colorAttachmentHandles;
 
@@ -391,6 +393,8 @@ struct App
 	GLuint roughnessAttachmentHandle;
 	GLuint finalRenderAttachmentHandle;
 	GLuint irradianceMapAttachmentHandle;
+	GLuint prefilterMapAttachmentHandle;
+	GLuint brdfAttachmentHandle;
 
 	Buffer cbuffer;
 
@@ -447,11 +451,14 @@ void PushAlignedData(Buffer& buffer, const void* data, u32 size, u32 alignment);
 void GenerateColorTexture(GLuint& colorAttachmentHandle, vec2 displaySize, GLint internalFormat);
 
 void GenerateQuad(App* app);
-void DrawQuad(App* app);
+void DrawFinalQuad(App* app);
+void DrawQuad(App* app, u32 programIdx, u32 programHandle);
 
 void CreateCubemap(App* app);
 void GenerateCube(App* app);
 void DrawCube(App* app, u32 programIdx, u32 programHandle, bool useViewAndProjection,mat4 view, mat4 projection);
 void CreateIrradianceMap(App* app);
+void CreatePrefilterMap(App* app);
+void CreateBRDF(App* app);
 
 Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, vec3 color = vec3(1.0f, 1.0f, 1.0f));
