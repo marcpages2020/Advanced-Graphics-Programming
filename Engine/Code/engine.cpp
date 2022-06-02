@@ -315,6 +315,10 @@ void Init(App* app)
 	Program& deferredPBRQuadProgram = app->programs[app->deferredPBRQuadProgramIdx];
 	LoadProgramAttributes(deferredPBRQuadProgram);
 
+	app->forwardPBRGeometryProgramIdx = LoadProgram(app, "shaders/pbr_forward_geometry .glsl", "FORWARD_PBR_GEOMETRY");
+	Program& forwardPBRGeometryProgram = app->programs[app->forwardPBRGeometryProgramIdx];
+	LoadProgramAttributes(forwardPBRGeometryProgram);
+
 	app->depthProgramIdx = LoadProgram(app, "shaders/depth.glsl", "SHOW_DEPTH");
 	Program& depthProgram = app->programs[app->depthProgramIdx];
 	LoadProgramAttributes(depthProgram);
@@ -631,7 +635,7 @@ void ForwardRender(App* app)
 {
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward shaded model");
 
-	Program& modelProgram = app->programs[app->forwardGeometryProgramIdx];
+	Program& modelProgram = app->programs[app->forwardPBRGeometryProgramIdx];
 	glUseProgram(modelProgram.handle);
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
@@ -642,7 +646,7 @@ void ForwardRender(App* app)
 
 	glPopDebugGroup();
 
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward lights");
+	/*glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward lights");
 
 	Program& lightsProgram = app->programs[app->lightsProgramIdx];
 	glUseProgram(lightsProgram.handle);
@@ -655,8 +659,7 @@ void ForwardRender(App* app)
 			RenderLight(app, light, lightsProgram);
 		}
 	}
-	glPopDebugGroup();
-
+	glPopDebugGroup();*/
 
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
 
@@ -757,6 +760,24 @@ void RenderModel(App* app, Entity entity, Program program)
 
 		GLuint roughnessLocation = glGetUniformLocation(program.handle, "uRoughness");
 		glUniform1f(roughnessLocation, entity.roughness);
+
+		if (app->currentRenderMode == RenderMode::FORWARD)
+		{
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, app->irradianceMapAttachmentHandle);
+			GLuint cubemapLocation = glGetUniformLocation(program.handle, "irradianceMap");
+			glUniform1i(cubemapLocation, 1);
+
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, app->prefilterMapAttachmentHandle);
+			GLuint prefilterLocation = glGetUniformLocation(program.handle, "prefilterMap");
+			glUniform1i(prefilterLocation, 2);
+
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, app->brdfAttachmentHandle);
+			GLuint brdfLocation = glGetUniformLocation(program.handle, "brdfLUT");
+			glUniform1i(brdfLocation, 3);
+		}
 
 		Submesh& submesh = mesh.submeshes[j];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
@@ -1315,7 +1336,8 @@ void DrawFinalQuad(App* app)
 	//Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
 	Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredPBRQuadProgramIdx];
 
-	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH) {
+	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH) 
+	{
 		quadProgram = app->programs[app->depthProgramIdx];
 	}
 

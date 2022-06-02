@@ -333,6 +333,7 @@ struct App
 	u32 deferredPBRQuadProgramIdx;
 
 	u32 forwardGeometryProgramIdx;
+	u32 forwardPBRGeometryProgramIdx;
 	u32 deferredGeometryProgramIdx;
 	u32 depthProgramIdx;
 	u32 lightsProgramIdx;
