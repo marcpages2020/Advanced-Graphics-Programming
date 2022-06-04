@@ -637,26 +637,15 @@ void Render(App* app)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	//FORWARD SHADING =======================================================================================
+	//Model Rendering ================================================================================================================
+	Program& modelProgram = app->programs[app->deferredGeometryProgramIdx];
 	if (app->currentRenderMode == RenderMode::FORWARD)
 	{
-		ForwardRender(app);
+		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Shaded model");
+		modelProgram = app->PBR ? app->programs[app->forwardPBRGeometryProgramIdx] : app->programs[app->forwardGeometryProgramIdx];
 	}
+	else { glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Shaded model"); }
 
-	//DEFERRED SHADING ======================================================================================
-	else
-	{
-		DeferredRender(app);
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void ForwardRender(App* app)
-{
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward shaded model");
-
-	Program& modelProgram = app->PBR ? app->programs[app->forwardPBRGeometryProgramIdx] : app->programs[app->forwardGeometryProgramIdx];
 	glUseProgram(modelProgram.handle);
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
@@ -667,6 +656,8 @@ void ForwardRender(App* app)
 
 	glPopDebugGroup();
 
+	// ==================================================================================================================================
+	//Cubemap Rendering =================================================================================================================
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
 
 	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
@@ -680,54 +671,19 @@ void ForwardRender(App* app)
 		DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
 	}
 
-	glPopDebugGroup();
-
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Textured quad");
+	glPopDebugGroup();
+	
+	// ==================================================================================================================================
+	//Quad Rendering ====================================================================================================================
+	if (app->currentRenderMode == RenderMode::FORWARD) { glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Textured quad"); }
+	else { glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Textured quad"); }
 
 	DrawFinalQuad(app);
 
 	glPopDebugGroup();
-}
-
-void DeferredRender(App* app)
-{
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Shaded model");
-
-	Program& modelProgram = app->programs[app->deferredGeometryProgramIdx];
-	glUseProgram(modelProgram.handle);
-
-	for (size_t i = 0; i < app->entities.size(); ++i)
-	{
-		Entity& entity = app->entities[i];
-		RenderModel(app, entity, modelProgram);
-	}
-
-	glPopDebugGroup();
-
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
-
-	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
-	float znear = 0.1f;
-	float zfar = 1000.0f;
-	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
-	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
-
-	if (app->showSkybox)
-	{
-		DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
-	}
-
-	glPopDebugGroup();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Textured quad");
-
-	DrawFinalQuad(app);
-
-	glPopDebugGroup();
 }
 
 void RenderModel(App* app, Entity entity, Program program)
