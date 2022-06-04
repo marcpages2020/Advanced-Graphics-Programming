@@ -633,7 +633,7 @@ void Render(App* app)
 	glDrawBuffers(ARRAY_COUNT(drawBuffers), drawBuffers);
 
 	//Clear color and depth
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
@@ -648,6 +648,8 @@ void Render(App* app)
 	{
 		DeferredRender(app);
 	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void ForwardRender(App* app)
@@ -700,19 +702,6 @@ void DeferredRender(App* app)
 	{
 		Entity& entity = app->entities[i];
 		RenderModel(app, entity, modelProgram);
-	}
-
-	glPopDebugGroup();
-
-	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Deferred Lights");
-
-	Program& lightsProgram = app->programs[app->lightsProgramIdx];
-	glUseProgram(lightsProgram.handle);
-
-	for (size_t i = 0; i < app->lights.size(); i++)
-	{
-		Light& light = app->lights[i];
-		//RenderLight(app, light, lightsProgram);
 	}
 
 	glPopDebugGroup();
@@ -771,7 +760,7 @@ void RenderModel(App* app, Entity entity, Program program)
 		GLuint roughnessLocation = glGetUniformLocation(program.handle, "uRoughness");
 		glUniform1f(roughnessLocation, entity.roughness);
 
-		if (app->currentRenderMode == RenderMode::FORWARD)
+		if (app->currentRenderMode == RenderMode::FORWARD && app->showSkybox && app->PBR)
 		{
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_CUBE_MAP, app->irradianceMapAttachmentHandle);
@@ -792,6 +781,7 @@ void RenderModel(App* app, Entity entity, Program program)
 		Submesh& submesh = mesh.submeshes[j];
 		glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
 	}
+
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	glUnmapBuffer(GL_UNIFORM_BUFFER);
@@ -1341,14 +1331,10 @@ void GenerateQuad(App* app)
 
 void DrawFinalQuad(App* app)
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
-
-	//Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
 	
 	Program& quadProgram = app->programs[app->forwardQuadProgramIdx];
 	if (app->currentRenderMode == RenderMode::DEFERRED)
@@ -1416,31 +1402,37 @@ void DrawFinalQuad(App* app)
 		GLuint depthTextureLocation = glGetUniformLocation(quadProgram.handle, "uDepth");
 		glUniform1i(depthTextureLocation, 5);
 
-		glActiveTexture(GL_TEXTURE6);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, app->irradianceMapAttachmentHandle);
-		GLuint cubemapLocation = glGetUniformLocation(quadProgram.handle, "irradianceMap");
-		glUniform1i(cubemapLocation, 6);
+		if (app->showSkybox && app->PBR)
+		{
+			glActiveTexture(GL_TEXTURE6);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, app->irradianceMapAttachmentHandle);
+			GLuint cubemapLocation = glGetUniformLocation(quadProgram.handle, "irradianceMap");
+			glUniform1i(cubemapLocation, 6);
 
-		glActiveTexture(GL_TEXTURE7);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, app->prefilterMapAttachmentHandle);
-		GLuint prefilterLocation = glGetUniformLocation(quadProgram.handle, "prefilterMap");
-		glUniform1i(prefilterLocation, 7);
+			glActiveTexture(GL_TEXTURE7);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, app->prefilterMapAttachmentHandle);
+			GLuint prefilterLocation = glGetUniformLocation(quadProgram.handle, "prefilterMap");
+			glUniform1i(prefilterLocation, 7);
 
-		glActiveTexture(GL_TEXTURE8);
-		glBindTexture(GL_TEXTURE_2D, app->brdfAttachmentHandle);
-		GLuint brdfLocation = glGetUniformLocation(quadProgram.handle, "brdfLUT");
-		glUniform1i(brdfLocation, 8);
+			glActiveTexture(GL_TEXTURE8);
+			glBindTexture(GL_TEXTURE_2D, app->brdfAttachmentHandle);
+			GLuint brdfLocation = glGetUniformLocation(quadProgram.handle, "brdfLUT");
+			glUniform1i(brdfLocation, 8);
+		}
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-
+	
 	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 	glUseProgram(0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void DrawQuad(App* app, u32 programIdx, u32 programHandle)
 {
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	Program& quadProgram = app->programs[programIdx];
@@ -1590,6 +1582,7 @@ void CreateIrradianceMap(App* app)
 		GLuint viewLocation = glGetUniformLocation(irradianceMapProgram.handle, "view");
 		glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &captureViews[i][0][0]);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, app->irradianceMapAttachmentHandle, 0);
+		glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		DrawCube(app, app->irradianceMapProgramIdx, app->cubemapAttachmentHandle, false);
@@ -1669,6 +1662,7 @@ void CreatePrefilterMap(App* app)
 			GLuint viewLocation = glGetUniformLocation(prefilterMapProgram.handle, "view");
 			glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &captureViews[i][0][0]);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, app->prefilterMapAttachmentHandle, mip);
+			glClearColor(0.1f, 0.1f, 0.1f, 0.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			DrawCube(app, app->prefilterMapProgramIdx, app->cubemapAttachmentHandle, false);

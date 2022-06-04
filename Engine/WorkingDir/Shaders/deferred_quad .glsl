@@ -76,10 +76,10 @@ vec3 CalculatePointLight(Light light, vec3 position, vec3 normal, vec3 viewDir);
 
 void main()
 {
-    vec3 vColor    = vec3(texture(uColor, vTexCoord));
-    vec3 vNormal   = normalize(vec3(texture(uNormals, vTexCoord)));
-    float alpha = texture(uNormals,vTexCoord).a;
-    vec3 vPosition = vec3(texture(uPosition, vTexCoord));
+    vec3 vColor      = vec3(texture(uColor, vTexCoord));
+    vec3 vNormal     = normalize(vec3(texture(uNormals, vTexCoord)));
+    float alpha      = texture(uNormals,vTexCoord).a;
+    vec3 vPosition   = vec3(texture(uPosition, vTexCoord));
     float vMetallic  = vec3(texture(uMetallic, vTexCoord)).r;
     float vRoughness = vec3(texture(uRoughness, vTexCoord)).r;
 
@@ -106,28 +106,28 @@ void main()
             oColor = vec4(vec3(vRoughness),1.0);
             break;
         case 6:
-           if(alpha>=0.1){
-               for(int i = 0; i < uLightCount; ++i)
-               {
-                       vec3 lightDir = normalize(uLight[i].direction);
-                       vec3 lightResult = vec3(0.0f);
-                       vec3 viewDir = normalize(uCameraPosition - vPosition);
+            if(alpha>=0.1){
+                for(int i = 0; i < uLightCount; ++i)
+                {
+                        vec3 lightDir = normalize(uLight[i].direction);
+                        vec3 lightResult = vec3(0.0f);
+                        vec3 viewDir = normalize(uCameraPosition - vPosition);
 
-                       if(uLight[i].type == 0)
-                       {
-                           lightResult = CalculateDirectionalLight(uLight[i], vPosition, normalize(vNormal), viewDir);
-                       }
-                       else
-                       {
-                           lightResult = CalculatePointLight(uLight[i], vPosition, normalize(vNormal), viewDir);
-                       }
-                        
-                       oColor.rgb += lightResult * vColor.rgb;    
-               }
-           }
-           else{
-               oColor = vec4(vColor, 1.0f);
-           }
+                        if(uLight[i].type == 0)
+                        {
+                            lightResult = CalculateDirectionalLight(uLight[i], vPosition, normalize(vNormal), viewDir);
+                        }
+                        else
+                        {
+                            lightResult = CalculatePointLight(uLight[i], vPosition, normalize(vNormal), viewDir);
+                        }
+                            
+                        oColor.rgb += lightResult * vColor.rgb;    
+                }
+            }
+            else{
+                oColor = vec4(vColor, 1.0f);
+            }
             break;
         default:
             oColor = vec4(vColor, 1.0f);
