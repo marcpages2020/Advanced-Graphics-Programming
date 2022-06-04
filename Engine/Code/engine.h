@@ -370,7 +370,7 @@ struct App
 	//GLuint VAO;
 
 	u32 directionalLightModel;
-	u32 pointLightModel;
+	u32 sphereModel;
 
 	u32 model;
 	u32 bufferHandle;
@@ -412,6 +412,9 @@ struct App
 	std::vector<Entity> entities;
 	std::vector<Program> changeableShaders;
 	Cubemap cubemap;
+
+	bool showSkybox = true;
+	bool PBR = true;
 };
 
 

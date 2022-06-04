@@ -62,7 +62,12 @@ in vec3 vPosition; //In worldspace
 in vec3 vNormal;   //In worldspace
 in vec3 vViewDir;  //In worldspace
 
+uniform float uMetallic;
+uniform float uRoughness;
 uniform sampler2D uTexture;
+uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D brdfLUT;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
@@ -75,7 +80,9 @@ layout(binding = 0, std140) uniform GlobalParams
 layout(location = 0) out vec4 rt0; //Albedo 
 layout(location = 1) out vec4 rt1; //Normals 
 layout(location = 2) out vec4 rt2; //Position 
-layout(location = 3) out vec4 rt3; //Final Render 
+layout(location = 3) out vec4 rt3; //Metallic 
+layout(location = 4) out vec4 rt4; //Roughness 
+layout(location = 5) out vec4 rt5; //Final Render 
 
 vec3 CalculateDirectionalLight(Light light, vec3 normal, vec3 viewDir);
 vec3 CalculatePointLight(Light light, vec3 normal, vec3 viewDir);
@@ -85,7 +92,9 @@ void main()
     rt0 = texture(uTexture, vTexCoord);
     rt1 = vec4(vNormal, 1.0);
     rt2 = vec4(vPosition, 1.0);
-    rt3 = vec4(vec3(0.0), 1.0);
+    rt3 = vec4(vec3(uMetallic), 1.0);
+    rt4 = vec4(vec3(uRoughness), 1.0);
+    rt5 = vec4(vec3(0.0), 1.0);
 
     for(int i = 0; i < uLightCount; ++i)
     {
@@ -101,7 +110,7 @@ void main()
             lightResult = CalculatePointLight(uLight[i], normalize(vNormal), vViewDir);
         }
         
-        rt3.rgb += lightResult * rt0.rgb;    
+        rt5.rgb += lightResult * rt0.rgb;    
     }
 }
 

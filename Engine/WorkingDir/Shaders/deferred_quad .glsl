@@ -53,7 +53,13 @@ struct Light
 uniform sampler2D uColor;
 uniform sampler2D uNormals;
 uniform sampler2D uPosition;
+uniform sampler2D uMetallic;
+uniform sampler2D uRoughness;
 uniform sampler2D uDepth;
+
+uniform samplerCube irradianceMap;
+uniform samplerCube prefilterMap;
+uniform sampler2D brdfLUT;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
@@ -74,6 +80,8 @@ void main()
     vec3 vNormal   = normalize(vec3(texture(uNormals, vTexCoord)));
     float alpha = texture(uNormals,vTexCoord).a;
     vec3 vPosition = vec3(texture(uPosition, vTexCoord));
+    float vMetallic  = vec3(texture(uMetallic, vTexCoord)).r;
+    float vRoughness = vec3(texture(uRoughness, vTexCoord)).r;
 
     oColor = vec4(vec3(0.0f), 1.0f);
 
@@ -92,6 +100,12 @@ void main()
             oColor = vec4(vec3(texture(uDepth, vTexCoord).r),1.0);
             break;
         case 4:
+            oColor = vec4(vec3(vMetallic),1.0);
+            break;
+        case 5:
+            oColor = vec4(vec3(vRoughness),1.0);
+            break;
+        case 6:
            if(alpha>=0.1){
                for(int i = 0; i < uLightCount; ++i)
                {

@@ -235,9 +235,9 @@ void Init(App* app)
 
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
-	app->camera = Camera(vec3(3.25f, 3.5f, 3.125f));
-	app->camera.yaw = -135.0f;
-	app->camera.pitch = -24.0f;
+	app->camera = Camera(vec3(0.25f, 1.25f, 6.75f));
+	app->camera.yaw = -90.0f;
+	app->camera.pitch = -10.0f;
 	app->camera.UpdateCameraVectors();
 
 	GLint maxUniformBufferSize;
@@ -258,17 +258,40 @@ void Init(App* app)
 
 	GenerateQuad(app);
 
+	//Load Textures
+	app->diceTexIdx = LoadTexture2D(app, "dice.png");
+	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
+	app->blackTexIdx = LoadTexture2D(app, "color_black.png");
+	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
+	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
+
 	//Engine models
 	app->directionalLightModel = LoadModel(app, "Primitives/Quad/quad.obj");
-	app->pointLightModel = LoadModel(app, "Primitives/Sphere/sphere.obj");
+	app->sphereModel = LoadModel(app, "Primitives/Sphere/sphere.obj");
 
 	//Entitiy
 	Entity entity;
 	entity.position = vec3(0.0f, 0.0f, 0.0f);
 	app->model = LoadModel(app, "Patrick/Patrick.obj");
+	entity.metallic = 1.0f;
+	entity.roughness = 0.75f;
 	//app->model = LoadModel(app, "Room/Room #1.obj");
 	entity.modelIndex = app->model;
 	app->entities.push_back(entity);
+
+	Entity sphereEntity;
+	sphereEntity.modelIndex = app->sphereModel;
+	//u32 materialIdx = app->models[app->sphereModel].materialIdx[0];
+	//app->materials[materialIdx].albedoTextureIdx = app->whiteTexIdx;
+	for (int i = 0; i < 10; ++i)
+	{
+		float x = cos(i * 0.1f * 6.28f) * 2.5f;
+		float z = sin(i * 0.1f * 6.28f) * 2.5f;
+		sphereEntity.position = vec3(x, 0.0f, z);
+		sphereEntity.metallic = i * 0.1f;
+		sphereEntity.roughness = 1.0f - (i * 0.1f);
+		app->entities.push_back(sphereEntity);
+	}
 
 	//Lights
 	//Directional
@@ -340,13 +363,6 @@ void Init(App* app)
 	Program& brdfMapProgram = app->programs[app->brdfProgramIdx];
 	LoadProgramAttributes(brdfMapProgram);
 
-	//Load Textures
-	app->diceTexIdx = LoadTexture2D(app, "dice.png");
-	app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
-	app->blackTexIdx = LoadTexture2D(app, "color_black.png");
-	app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
-	app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
-
 	OnScreenResize(app);
 }
 
@@ -391,6 +407,9 @@ void Gui(App* app)
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
 	ImGui::Separator();
 	ImGui::Dummy(ImVec2(0.0f, 10.0f));
+
+	ImGui::Checkbox("Show Skybox", &app->showSkybox);
+	ImGui::Checkbox("PBR", &app->PBR);
 
 	const char* renderModeBuffers[] = { "FORWARD", "DEFERRED" };
 	if (ImGui::BeginCombo("Render Mode", renderModeBuffers[(u32)app->currentRenderMode]))
@@ -635,7 +654,7 @@ void ForwardRender(App* app)
 {
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward shaded model");
 
-	Program& modelProgram = app->programs[app->forwardPBRGeometryProgramIdx];
+	Program& modelProgram = app->PBR ? app->programs[app->forwardPBRGeometryProgramIdx] : app->programs[app->forwardGeometryProgramIdx];
 	glUseProgram(modelProgram.handle);
 
 	for (size_t i = 0; i < app->entities.size(); ++i)
@@ -646,21 +665,6 @@ void ForwardRender(App* app)
 
 	glPopDebugGroup();
 
-	/*glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward lights");
-
-	Program& lightsProgram = app->programs[app->lightsProgramIdx];
-	glUseProgram(lightsProgram.handle);
-
-	if (app->currentRenderTargetMode == RenderTargetsMode::FINAL_RENDER)
-	{
-		for (size_t i = 0; i < app->lights.size(); i++)
-		{
-			Light& light = app->lights[i];
-			RenderLight(app, light, lightsProgram);
-		}
-	}
-	glPopDebugGroup();*/
-
 	glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Cubemap");
 
 	float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
@@ -669,7 +673,10 @@ void ForwardRender(App* app)
 	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
 	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
 
-	DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
+	if (app->showSkybox)
+	{
+		DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
+	}
 
 	glPopDebugGroup();
 
@@ -718,7 +725,10 @@ void DeferredRender(App* app)
 	mat4 projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
 	mat4 view = glm::mat4(glm::mat3(app->camera.GetViewMatrix()));
 
-	DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
+	if (app->showSkybox)
+	{
+		DrawCube(app, app->cubemapProgramIdx, app->cubemapAttachmentHandle, true, view, projection);
+	}
 
 	glPopDebugGroup();
 
@@ -1099,6 +1109,11 @@ void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial,
 		String filepath = MakePath(directory, filename);
 		myMaterial.albedoTextureIdx = LoadTexture2D(app, filepath.str);
 	}
+	else
+	{
+		myMaterial.albedoTextureIdx = app->whiteTexIdx;
+	}
+
 	if (material->GetTextureCount(aiTextureType_EMISSIVE) > 0)
 	{
 		material->GetTexture(aiTextureType_EMISSIVE, 0, &aiFilename);
@@ -1334,7 +1349,12 @@ void DrawFinalQuad(App* app)
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
 
 	//Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
-	Program& quadProgram = app->currentRenderMode == RenderMode::FORWARD ? app->programs[app->forwardQuadProgramIdx] : app->programs[app->deferredPBRQuadProgramIdx];
+	
+	Program& quadProgram = app->programs[app->forwardQuadProgramIdx];
+	if (app->currentRenderMode == RenderMode::DEFERRED)
+	{
+		quadProgram = app->PBR ? app->programs[app->deferredPBRQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
+	}
 
 	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH) 
 	{
@@ -1347,9 +1367,7 @@ void DrawFinalQuad(App* app)
 	//FORWARD
 	if (app->currentRenderMode == RenderMode::FORWARD)
 	{
-		glUniform1i(app->programUniformTexture, 0);
 		glActiveTexture(GL_TEXTURE0);
-
 		switch (app->currentRenderTargetMode)
 		{
 		case RenderTargetsMode::ALBEDO:		  glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
@@ -1361,55 +1379,56 @@ void DrawFinalQuad(App* app)
 		case RenderTargetsMode::FINAL_RENDER: glBindTexture(GL_TEXTURE_2D, app->finalRenderAttachmentHandle); break;
 		default:							  glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle); break;
 		}
+
+		GLuint colorTextureLocation = glGetUniformLocation(quadProgram.handle, "uColor");
+		glUniform1i(colorTextureLocation, 0);
 	}
 	//DEFERRED
 	else
 	{
-		Program& deferredQuadProgram = app->programs[app->deferredPBRQuadProgramIdx];
-
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, app->albedoAttachmentHandle);
-		GLuint colorTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uColor");
+		GLuint colorTextureLocation = glGetUniformLocation(quadProgram.handle, "uColor");
 		glUniform1i(colorTextureLocation, 0);
 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, app->normalsAttachmentHandle);
-		GLuint normalsTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uNormals");
+		GLuint normalsTextureLocation = glGetUniformLocation(quadProgram.handle, "uNormals");
 		glUniform1i(normalsTextureLocation, 1);
 
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, app->positionAttachmentHandle);
-		GLuint positionTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uPosition");
+		GLuint positionTextureLocation = glGetUniformLocation(quadProgram.handle, "uPosition");
 		glUniform1i(positionTextureLocation, 2);
 
 		glActiveTexture(GL_TEXTURE3);
 		glBindTexture(GL_TEXTURE_2D, app->metallicAttachmentHandle);
-		GLuint metallicTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uMetallic");
+		GLuint metallicTextureLocation = glGetUniformLocation(quadProgram.handle, "uMetallic");
 		glUniform1i(metallicTextureLocation, 3);
 
 		glActiveTexture(GL_TEXTURE4);
 		glBindTexture(GL_TEXTURE_2D, app->roughnessAttachmentHandle);
-		GLuint roughnessTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uRoughness");
+		GLuint roughnessTextureLocation = glGetUniformLocation(quadProgram.handle, "uRoughness");
 		glUniform1i(roughnessTextureLocation, 4);
 
 		glActiveTexture(GL_TEXTURE5);
 		glBindTexture(GL_TEXTURE_2D, app->depthAttachmentHandle);
-		GLuint depthTextureLocation = glGetUniformLocation(deferredQuadProgram.handle, "uDepth");
+		GLuint depthTextureLocation = glGetUniformLocation(quadProgram.handle, "uDepth");
 		glUniform1i(depthTextureLocation, 5);
 
 		glActiveTexture(GL_TEXTURE6);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, app->irradianceMapAttachmentHandle);
-		GLuint cubemapLocation = glGetUniformLocation(deferredQuadProgram.handle, "irradianceMap");
+		GLuint cubemapLocation = glGetUniformLocation(quadProgram.handle, "irradianceMap");
 		glUniform1i(cubemapLocation, 6);
 
 		glActiveTexture(GL_TEXTURE7);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, app->prefilterMapAttachmentHandle);
-		GLuint prefilterLocation = glGetUniformLocation(deferredQuadProgram.handle, "prefilterMap");
+		GLuint prefilterLocation = glGetUniformLocation(quadProgram.handle, "prefilterMap");
 		glUniform1i(prefilterLocation, 7);
 
 		glActiveTexture(GL_TEXTURE8);
 		glBindTexture(GL_TEXTURE_2D, app->brdfAttachmentHandle);
-		GLuint brdfLocation = glGetUniformLocation(deferredQuadProgram.handle, "brdfLUT");
+		GLuint brdfLocation = glGetUniformLocation(quadProgram.handle, "brdfLUT");
 		glUniform1i(brdfLocation, 8);
 	}
 
@@ -1707,7 +1726,7 @@ Light CreateLight(App* app, LightType lightType, vec3 position, vec3 direction, 
 	entity.position = position;
 
 	if (lightType == LightType::LightType_Directional) { entity.modelIndex = app->directionalLightModel; }
-	else if (lightType == LightType::LightType_Point) { entity.modelIndex = app->pointLightModel; }
+	else if (lightType == LightType::LightType_Point) { entity.modelIndex = app->sphereModel; }
 
 	light.entity = entity;
 
