@@ -1,6 +1,7 @@
 # Advanced Graphics Programming
  
 **Authors:** Arnau Falgueras García de Atocha and Marc Pagès Francesch
+GitHub repo: https://github.com/marcpages2020/Advanced-Graphics-Programming
 
 ## Implemented features: 
   - Environment Mapping (Skybox, fake reflections and diffuse IBL)
