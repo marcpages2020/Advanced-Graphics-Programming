@@ -8,11 +8,13 @@
 
 ### Forward Rendering
 |  Technique | No PBR  | PBR |
+| ---------- | ------- | --- |
 |No Environment Mapping| ![NoEnv_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_NO_ENVMP_NO_PBR.PNG)|  ![NoEnv_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_NO_ENVMP_PBR.PNG)|
 |Environment Mapping| ![Env_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_ENVMP_NO_PBR.PNG)| ![Env_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_ENVMP_PBR.PNG)|
 
 ### Deferred Rendering
 |  Technique | No PBR  | PBR |
+| ---------- | ------- | --- |
 |No Environment Mapping| ![NoEnv_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_NO_ENVMP_NO_PBR.PNG)|  ![NoEnv_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_NO_ENVMP_PBR.PNG)|
 |Environment Mapping| ![Env_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_ENVMP_NO_PBR.PNG)| ![Env_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_ENVMP_PBR.PNG)|
 
