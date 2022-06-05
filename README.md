@@ -6,11 +6,19 @@
  ## Environment Mapping (Skybox, fake reflections and diffuse IBL)
  ## PBR + PBR IBL
 
+### Forward Rendering
 |  Technique | No PBR  | PBR |
 |---|---|---|
-|No Environment Mapping| Img| Img |
+|No Environment Mapping| ![NoEnv_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_NO_ENVMP_NO_PBR.PNG)|  ![NoEnv_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_NO_ENVMP_PBR.PNG)|
 |---|---|---|
-|Environment Mapping| Img| Img |
+|Environment Mapping| ![Env_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_ENVMP_NO_PBR.PNG)| ![Env_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/FRWD_ENVMP_NO_PBR.PNG)|
+
+### Deferred Rendering
+|  Technique | No PBR  | PBR |
+|---|---|---|
+|No Environment Mapping| ![NoEnv_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_NO_ENVMP_NO_PBR.PNG)|  ![NoEnv_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_NO_ENVMP_PBR.PNG)|
+|---|---|---|
+|Environment Mapping| ![Env_NoPBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_ENVMP_NO_PBR.PNG)| ![Env_PBR](https://github.com/marcpages2020/Advanced-Graphics-Programming/blob/main/Captures/DFRD_ENVMP_NO_PBR.PNG)|
 
 ## Engine Usage
 To enable and disable the implemented techniques mark the checkboxes for each technique. To change between forward and deferred rendering use the dropdown under the checkboxes and to change between render targets use the dropdown under it. Under these you will find the foldables which let you change the entities positions, their metallic and roughness attributes. You will also find a foldable which lets you change the color of the lights, their positions and their direction. 
