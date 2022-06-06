@@ -90,7 +90,7 @@ vec3 CalculatePointLight(Light light, vec3 normal, vec3 viewDir);
 void main()
 {
     rt0 = texture(uTexture, vTexCoord);
-    rt1 = vec4(vNormal, 1.0);
+    rt1 = vec4(normalize(vNormal), 1.0);
     rt2 = vec4(vPosition, 1.0);
     rt3 = vec4(vec3(uMetallic), 1.0);
     rt4 = vec4(vec3(uRoughness), 1.0);
