@@ -6,6 +6,7 @@
 //
 
 #include "engine.h"
+#ifdef _DEBUG
 #include <imgui.h>
 #include <stb_image.h>
 #include <stb_image_write.h>
@@ -13,6 +14,18 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <glm/glm.hpp>
+#endif // _DEBUG
+
+#ifndef _DEBUG
+#include <imgui.h>
+#include <stb_image.h>
+#include <stb_image_write.h>
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <glm/glm.hpp>
+#endif // !_DEBUG
+
 
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
