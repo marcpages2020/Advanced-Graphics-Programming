@@ -49,7 +49,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef AI_DEFINES_H_INC
 #define AI_DEFINES_H_INC
 
+#ifdef _DEBUG
 #include <assimp/config.h>
+#endif // _DEBUG
+
+#ifndef _DEBUG
+#include "config.h"
+#endif // !_DEBUG
+
+
 
     //////////////////////////////////////////////////////////////////////////
     /* Define ASSIMP_BUILD_NO_XX_IMPORTER to disable a specific

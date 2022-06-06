@@ -49,8 +49,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef AI_ANIM_H_INC
 #define AI_ANIM_H_INC
 
+#ifdef _DEBUG
 #include <assimp/types.h>
 #include <assimp/quaternion.h>
+#endif // _DEBUG
+
+#ifndef _DEBUG
+#include "types.h"
+#include "quaternion.h"""
+#endif // !_DEBUG
+
 
 #ifdef __cplusplus
 extern "C" {

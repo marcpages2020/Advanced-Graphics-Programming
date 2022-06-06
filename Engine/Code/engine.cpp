@@ -17,13 +17,13 @@
 #endif // _DEBUG
 
 #ifndef _DEBUG
-#include <imgui.h>
-#include <stb_image.h>
-#include <stb_image_write.h>
-#include <assimp/cimport.h>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <glm/glm.hpp>
+#include "../ThirdParty/imgui-docking/imgui.h"
+#include "../ThirdParty/stb/stb_image.h"
+#include "../ThirdParty/stb/stb_image_write.h"
+#include "../ThirdParty/Assimp/include/assimp/cimport.h"
+#include "../ThirdParty/Assimp/include/assimp/scene.h"
+#include "../ThirdParty/Assimp/include/assimp/postprocess.h"
+#include "../ThirdParty/glm/include/glm/glm.hpp"
 #endif // !_DEBUG
 
 
@@ -427,7 +427,7 @@ void Gui(App* app)
 	const char* renderModeBuffers[] = { "FORWARD", "DEFERRED" };
 	if (ImGui::BeginCombo("Render Mode", renderModeBuffers[(u32)app->currentRenderMode]))
 	{
-		for (size_t i = 0; i < IM_ARRAYSIZE(renderModeBuffers); ++i)
+		for (u64 i = 0; i < IM_ARRAYSIZE(renderModeBuffers); ++i)
 		{
 			bool isSelected = (i == (u32)app->currentRenderMode);
 			if (ImGui::Selectable(renderModeBuffers[i], isSelected))
@@ -442,7 +442,7 @@ void Gui(App* app)
 	const char* renderTargetBuffers[] = { "ALBEDO", "NORMALS", "POSITION", "DEPTH", "METALLIC", "ROUGHNESS", "FINAL RENDER" };
 	if (ImGui::BeginCombo("Render Targets", renderTargetBuffers[(u32)app->currentRenderTargetMode]))
 	{
-		for (size_t i = 0; i < IM_ARRAYSIZE(renderTargetBuffers); ++i)
+		for (u64 i = 0; i < IM_ARRAYSIZE(renderTargetBuffers); ++i)
 		{
 			bool isSelected = (i == (u32)app->currentRenderTargetMode);
 			if (ImGui::Selectable(renderTargetBuffers[i], isSelected))
@@ -460,7 +460,7 @@ void Gui(App* app)
 
 	if (ImGui::TreeNode("Entities"))
 	{
-		for (size_t i = 0; i < app->entities.size(); ++i)
+		for (u64 i = 0; i < app->entities.size(); ++i)
 		{
 			ImGui::PushID(i);
 			std::string entityName = "Entity: " + std::to_string(i);
@@ -595,7 +595,7 @@ void Update(App* app)
 	app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;
 
 	//Normal entities
-	for (size_t i = 0; i < app->entities.size(); ++i)
+	for (u64 i = 0; i < app->entities.size(); ++i)
 	{
 		AlignHead(app->cbuffer, app->uniformBufferAlignment);
 
@@ -611,7 +611,7 @@ void Update(App* app)
 	}
 
 	////Light entities
-	//for (size_t i = 0; i < app->lights.size(); i++)
+	//for (u64 i = 0; i < app->lights.size(); i++)
 	//{
 	//	AlignHead(app->cbuffer, app->uniformBufferAlignment);
 
@@ -661,7 +661,7 @@ void Render(App* app)
 
 	glUseProgram(modelProgram.handle);
 
-	for (size_t i = 0; i < app->entities.size(); ++i)
+	for (u64 i = 0; i < app->entities.size(); ++i)
 	{
 		Entity& entity = app->entities[i];
 		RenderModel(app, entity, modelProgram);
@@ -1546,7 +1546,7 @@ void CreateIrradianceMap(App* app)
 	glViewport(0, 0, 32, 32);
 	glBindFramebuffer(GL_FRAMEBUFFER, app->captureFramebufferHandle);
 
-	for (size_t i = 0; i < 6; i++)
+	for (u64 i = 0; i < 6; i++)
 	{
 		GLuint viewLocation = glGetUniformLocation(irradianceMapProgram.handle, "view");
 		glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &captureViews[i][0][0]);
@@ -1614,7 +1614,7 @@ void CreatePrefilterMap(App* app)
 	glBindFramebuffer(GL_FRAMEBUFFER, app->captureFramebufferHandle);
 
 	unsigned int maxMipLevels = 5;
-	for (size_t mip = 0; mip < maxMipLevels; ++mip)
+	for (u64 mip = 0; mip < maxMipLevels; ++mip)
 	{
 		unsigned int mipWidth = static_cast<unsigned int>(128 * std::pow(0.5, mip));
 		unsigned int mipHeight = static_cast<unsigned int>(128 * std::pow(0.5, mip));
@@ -1626,7 +1626,7 @@ void CreatePrefilterMap(App* app)
 
 		GLuint roughnessLocation = glGetUniformLocation(prefilterMapProgram.handle, "roughness");
 		glUniform1f(roughnessLocation, roughness);
-		for (size_t i = 0; i < 6; ++i)
+		for (u64 i = 0; i < 6; ++i)
 		{
 			GLuint viewLocation = glGetUniformLocation(prefilterMapProgram.handle, "view");
 			glUniformMatrix4fv(viewLocation, 1, GL_FALSE, &captureViews[i][0][0]);

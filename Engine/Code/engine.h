@@ -5,7 +5,16 @@
 #pragma once
 
 #include "platform.h"
+
+#ifdef _DEBUG
 #include <glad/glad.h>
+#endif // _DEBUG
+
+#ifndef _DEBUG
+#include "../ThirdParty/glad/include/glad/glad.h";
+#endif // !DEBUG
+
+
 
 #define PushData(buffer, data, size) PushAlignedData(buffer, data, size, 1)
 #define PushUInt(buffer, value)  { u32   v = value; PushAlignedData(buffer, &v, sizeof(v), 4); }

@@ -70,6 +70,8 @@ IMGUI_IMPL_API void     ImGui_ImplOpenGL3_DestroyDeviceObjects();
     #define IMGUI_IMPL_OPENGL_LOADER_GLEW
 #elif __has_include(<glad/glad.h>)
     #define IMGUI_IMPL_OPENGL_LOADER_GLAD
+#elif __has_include("../glad/include/glad/glad.h")
+#define IMGUI_IMPL_OPENGL_LOADER_GLAD
 #elif __has_include(<glad/gl.h>)
     #define IMGUI_IMPL_OPENGL_LOADER_GLAD2
 #elif __has_include(<GL/gl3w.h>)

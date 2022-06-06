@@ -11,9 +11,19 @@
 #include <stdio.h>
 #include <assert.h>
 #include <math.h>
+
+#ifdef _DEBUG
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#endif // _DEBUG
+
+#ifndef _DEBUG
+#include "../ThirdParty/glm/include/glm/glm.hpp"
+#include "../ThirdParty/glm/include/glm/gtx/transform.hpp"
+#include "../ThirdParty/glm/include/glm/gtc/type_ptr.hpp"
+#endif // !_DEBUG
+
 #include <vector>
 #include <string>
 

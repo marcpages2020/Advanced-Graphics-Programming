@@ -17,11 +17,22 @@
 
 #include "engine.h"
 
+#ifdef _DEBUG
 #include <GLFW/glfw3.h>
-#include <stdio.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
+#endif // _DEBUG
+
+#ifndef _DEBUG
+#include "../ThirdParty/glfw/include/GLFW/glfw3.h"
+#include "../ThirdParty/imgui-docking/imgui.h"
+#include "../ThirdParty/imgui-docking/imgui_impl_glfw.h"
+#include "../ThirdParty/imgui-docking/imgui_impl_opengl3.h"
+#endif // !_DEBUG
+
+
+#include <stdio.h>
 
 #define WINDOW_TITLE  "Advanced Graphics Programming"
 #define WINDOW_WIDTH  800
