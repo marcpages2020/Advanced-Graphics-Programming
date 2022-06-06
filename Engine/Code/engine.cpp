@@ -638,7 +638,7 @@ void Render(App* app)
 	glEnable(GL_DEPTH_TEST);
 
 	//Model Rendering ================================================================================================================
-	Program& modelProgram = app->programs[app->deferredGeometryProgramIdx];
+	Program modelProgram = app->programs[app->deferredGeometryProgramIdx];
 	if (app->currentRenderMode == RenderMode::FORWARD)
 	{
 		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Shaded model");
@@ -673,7 +673,7 @@ void Render(App* app)
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glPopDebugGroup();
-	
+
 	// ==================================================================================================================================
 	//Quad Rendering ====================================================================================================================
 	if (app->currentRenderMode == RenderMode::FORWARD) { glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "Forward Textured quad"); }
@@ -1291,14 +1291,14 @@ void DrawFinalQuad(App* app)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glViewport(0, 0, app->displaySize.x, app->displaySize.y);
-	
-	Program& quadProgram = app->programs[app->forwardQuadProgramIdx];
+
+	Program quadProgram = app->programs[app->forwardQuadProgramIdx];
 	if (app->currentRenderMode == RenderMode::DEFERRED)
 	{
 		quadProgram = app->PBR ? app->programs[app->deferredPBRQuadProgramIdx] : app->programs[app->deferredQuadProgramIdx];
 	}
 
-	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH) 
+	if (app->currentRenderMode == RenderMode::FORWARD && app->currentRenderTargetMode == RenderTargetsMode::DEPTH)
 	{
 		quadProgram = app->programs[app->depthProgramIdx];
 	}
@@ -1378,7 +1378,7 @@ void DrawFinalQuad(App* app)
 	}
 
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
-	
+
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
